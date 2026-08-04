@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Sparkles, Mail, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft,
-  CheckCircle2, Building2, Users, Star, Shield, Zap,
-  Camera, Utensils, Flower2, Music, Store, Search, CalendarCheck,
-  TrendingUp, Heart, Briefcase, Phone
+  CheckCircle2, Building2, Users, Shield, Zap,
+  Store, Search, CalendarCheck,
+  TrendingUp, Heart, Briefcase
 } from 'lucide-react';
 import { useAuth, type UserRole } from '../lib/auth';
 
@@ -53,34 +53,6 @@ export default function AuthPage() {
   const [mounted, setMounted] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
 
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [otp, setOtp] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpTimer, setOtpTimer] = useState(0);
-  const [otpNotice, setOtpNotice] = useState('');
-
-  useEffect(() => {
-    let t: any;
-    if (otpTimer > 0) {
-      t = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
-    }
-    return () => clearTimeout(t);
-  }, [otpTimer]);
-
-  const sendOtpCode = () => {
-    if (!mobileNumber.trim() || mobileNumber.length < 10) {
-      setError('Please enter a valid 10-digit mobile number');
-      return;
-    }
-    setError('');
-    setOtpSent(true);
-    setOtpTimer(60);
-    setOtpNotice('✓ Verification code sent! Use mock OTP: 123456');
-  };
-
   const slides = role === 'vendor' ? vendorSlides : customerSlides;
 
   useEffect(() => { setMounted(true); }, []);
@@ -112,12 +84,7 @@ export default function AuthPage() {
 
     if (mode === 'signup') {
       if (!name.trim()) return setError('Please enter your full name');
-      if (!mobileNumber.trim()) return setError('Please enter your mobile number');
-      if (!otp.trim()) return setError('Please enter the OTP');
-      if (otp !== '123456') return setError('Invalid OTP. Please use the verification code 123456');
       if (password.length < 6) return setError('Password must be at least 6 characters');
-      if (password !== confirmPassword) return setError('Passwords do not match');
-      if (!agreeTerms) return setError('You must agree to the Terms & Conditions');
     }
 
     setLoading(true);
@@ -139,13 +106,6 @@ export default function AuthPage() {
   const switchMode = (m: 'signin' | 'signup') => {
     setMode(m);
     setError('');
-    setConfirmPassword('');
-    setMobileNumber('');
-    setOtp('');
-    setAgreeTerms(false);
-    setOtpSent(false);
-    setOtpTimer(0);
-    setOtpNotice('');
   };
 
   const resetRole = () => {
@@ -154,13 +114,6 @@ export default function AuthPage() {
     setName('');
     setEmail('');
     setPassword('');
-    setConfirmPassword('');
-    setMobileNumber('');
-    setOtp('');
-    setAgreeTerms(false);
-    setOtpSent(false);
-    setOtpTimer(0);
-    setOtpNotice('');
   };
 
   const slide = slides[slideIndex] ?? slides[0];
@@ -176,9 +129,13 @@ export default function AuthPage() {
   // Role selected → show auth form
   return (
     <>
-      <div className="min-h-screen flex">
-        {/* Left visual panel */}
-        <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden">
+      <div className="min-h-screen lg:h-screen w-full relative overflow-hidden bg-cream-50">
+        {/* Visual panel (Left in Customer Mode, Right in Vendor Mode) */}
+        <div
+          className={`hidden lg:flex lg:w-1/2 absolute top-0 bottom-0 left-0 h-full overflow-hidden mix-swap-panel z-10 ${
+            isVendor ? 'translate-x-full' : 'translate-x-0'
+          }`}
+        >
           {slides.map((s, i) => (
             <div
               key={i}
@@ -189,58 +146,59 @@ export default function AuthPage() {
             </div>
           ))}
 
-          {/* Overlays — color depends on role */}
-          <div className={`absolute inset-0 ${isVendor ? 'bg-gradient-to-br from-sage-950/90 via-sage-900/60 to-sage-950/80' : 'bg-gradient-to-br from-sage-900/80 via-sage-800/45 to-sage-900/75'}`} />
+          {/* Mixed multi-layer blend overlays */}
+          <div className={`absolute inset-0 mix-swap-panel ${isVendor ? 'bg-sage-950/90 mix-blend-multiply' : 'bg-sage-900/80 mix-blend-multiply'}`} />
+          <div className={`absolute inset-0 mix-swap-panel backdrop-blur-[2px] ${isVendor ? 'bg-gradient-to-br from-sage-950/90 via-sage-900/60 to-gold-950/70' : 'bg-gradient-to-br from-sage-900/85 via-sage-800/40 to-sage-900/75'}`} />
           <div className="absolute inset-0 bg-gradient-to-t from-sage-950/70 via-transparent to-transparent" />
 
           <div className="orb w-96 h-96 bg-sage-600/20 -top-20 -left-20" />
           <div className="orb w-72 h-72 bg-gold-400/15 bottom-10 right-10" style={{ animationDelay: '2s' }} />
 
-          <div className="relative z-10 flex flex-col justify-between p-12 text-white h-full">
+          <div className="relative z-10 flex flex-col justify-between p-8 xl:p-12 text-white h-full w-full">
             {/* Logo */}
             <div className="flex items-center justify-between">
               <button onClick={() => navigate('/')} className="flex items-center gap-2.5 group w-fit">
-                <div className="w-11 h-11 rounded-xl bg-gradient-brand flex items-center justify-center shadow-glow group-hover:scale-110 transition-transform">
-                  <Sparkles className="w-6 h-6 text-white" />
+                <div className="w-9 h-9 rounded-xl bg-gradient-brand flex items-center justify-center shadow-glow group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-display text-3xl font-bold">Festivo</span>
+                <span className="font-display text-2xl font-bold">Festivo</span>
               </button>
 
               {/* Role badge */}
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${isVendor ? 'bg-sage-800/60 border border-gold-400/30' : 'bg-sage-700/40 border border-white/20'} backdrop-blur-sm`}>
-                {isVendor ? <Store className="w-4 h-4 text-gold-400" /> : <Users className="w-4 h-4 text-cream-400" />}
-                <span className="text-sm font-bold">{isVendor ? 'Vendor Portal' : 'Customer Portal'}</span>
+              <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl mix-swap-panel ${isVendor ? 'bg-sage-800/60 border border-gold-400/30' : 'bg-sage-700/40 border border-white/20'} backdrop-blur-sm`}>
+                {isVendor ? <Store className="w-4 h-4 text-gold-400 animate-pulse" /> : <Users className="w-4 h-4 text-cream-400" />}
+                <span className="text-xs font-bold">{isVendor ? 'Vendor Portal' : 'Customer Portal'}</span>
               </div>
             </div>
 
-            {/* Slide content */}
-            <div key={`${role}-${slideIndex}`} className="animate-fade-up">
-              <p className={`text-sm font-bold tracking-widest uppercase mb-3 ${isVendor ? 'text-gold-400' : 'text-cream-400'}`}>
+            {/* Slide content with mixed fade & scale transition */}
+            <div key={`${role}-${slideIndex}`} className="animate-fade-up my-auto py-3 mix-swap-panel">
+              <p className={`text-xs font-bold tracking-widest uppercase mb-2 mix-swap-panel ${isVendor ? 'text-gold-400' : 'text-cream-400'}`}>
                 {slide.tag}
               </p>
-              <h2 className="font-display text-5xl md:text-6xl font-bold leading-tight mb-6 whitespace-pre-line drop-shadow-lg">
+              <h2 className="font-display text-3xl xl:text-4xl font-bold leading-tight mb-3.5 whitespace-pre-line drop-shadow-lg mix-swap-panel">
                 {slide.title}
               </h2>
 
               {/* Feature list */}
-              <div className="space-y-3 max-w-sm">
+              <div className="space-y-2.5 max-w-sm">
                 {(isVendor ? VENDOR_FEATURES : CUSTOMER_FEATURES).slice(0, 3).map(({ icon: Icon, text }) => (
-                  <div key={text} className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isVendor ? 'bg-gold-400/15 border border-gold-400/25' : 'bg-sage-500/20 border border-sage-400/25'}`}>
-                      <Icon className={`w-4 h-4 ${isVendor ? 'text-gold-400' : 'text-cream-300'}`} />
+                  <div key={text} className="flex items-center gap-2.5">
+                    <div className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center flex-shrink-0 mix-swap-panel ${isVendor ? 'bg-gold-400/15 border border-gold-400/25' : 'bg-sage-500/20 border border-sage-400/25'}`}>
+                      <Icon className={`w-3.5 h-3.5 mix-swap-panel ${isVendor ? 'text-gold-400' : 'text-cream-300'}`} />
                     </div>
-                    <span className="text-sage-100 text-sm font-medium">{text}</span>
+                    <span className="text-sage-100 text-xs xl:text-sm font-medium">{text}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Bottom bar */}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-2">
                   {['1239291', '1516680', '1181686', '1024993'].map(n => (
-                    <div key={n} className="w-8 h-8 rounded-full border-2 border-sage-900 overflow-hidden">
+                    <div key={n} className="w-6.5 h-6.5 rounded-full border border-sage-900 overflow-hidden">
                       <img
                         src={`https://images.pexels.com/photos/${n}/pexels-photo-${n}.jpeg?auto=compress&cs=tinysrgb&w=50&h=50&dpr=1`}
                         alt=""
@@ -250,17 +208,17 @@ export default function AuthPage() {
                     </div>
                   ))}
                 </div>
-                <p className="text-sage-200 text-sm font-medium">
+                <p className="text-sage-200 text-xs font-medium mix-swap-panel">
                   {isVendor ? 'Join 2,500+ vendors' : 'Join 50,000+ happy customers'}
                 </p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {slides.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setSlideIndex(i)}
-                    className={`transition-all duration-300 rounded-full ${i === slideIndex ? 'w-6 h-2 bg-gold-400' : 'w-2 h-2 bg-white/30 hover:bg-white/50'}`}
+                    className={`transition-all duration-300 rounded-full ${i === slideIndex ? 'w-5 h-1 bg-gold-400' : 'w-1.5 h-1 bg-white/30 hover:bg-white/50'}`}
                   />
                 ))}
               </div>
@@ -268,56 +226,60 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Right form panel */}
-        <div className="flex-1 flex items-center justify-center p-6 bg-cream-50 relative min-h-screen">
+        {/* Form panel with mixed morphing background and card transition */}
+        <div
+          className={`w-full lg:w-1/2 absolute top-0 bottom-0 right-0 h-full flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-cream-50 relative lg:absolute mix-swap-panel z-20 overflow-y-auto ${
+            isVendor ? 'lg:-translate-x-full' : 'lg:translate-x-0'
+          }`}
+        >
           <button
             onClick={() => navigate('/')}
-            className="absolute top-6 left-6 flex items-center gap-2 text-dark-500 hover:text-sage-700 transition-colors group"
+            className="absolute top-6 left-6 flex items-center gap-2 text-dark-500 hover:text-sage-700 transition-colors group z-10 font-bold text-xs sm:text-sm"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-medium">Home</span>
+            <span>Home</span>
           </button>
 
-          <div className={`w-full max-w-md transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <div className="bg-white rounded-3xl shadow-card p-8 md:p-10 border border-sage-100">
+          <div className={`w-full max-w-md my-auto mix-swap-panel ${mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
+            <div className="bg-white rounded-3xl shadow-card p-6 sm:p-7 md:p-8 border border-sage-100 mix-swap-panel">
               {/* Mobile logo */}
-              <div className="lg:hidden flex items-center gap-2.5 mb-6 justify-center">
-                <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-glow">
-                  <Sparkles className="w-5 h-5 text-white" />
+              <div className="lg:hidden flex items-center gap-2.5 mb-4 justify-center">
+                <div className="w-8 h-8 rounded-xl bg-gradient-brand flex items-center justify-center shadow-glow">
+                  <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <span className="font-display text-2xl font-bold text-sage-900">Festivo</span>
               </div>
 
-              {/* Role indicator */}
-              <div className={`flex items-center justify-between p-3 rounded-xl mb-6 ${isVendor ? 'bg-sage-900' : 'bg-sage-50'}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isVendor ? 'bg-sage-700' : 'bg-sage-100'}`}>
-                    {isVendor ? <Store className="w-5 h-5 text-gold-400" /> : <Users className="w-5 h-5 text-sage-600" />}
+              {/* Role indicator with mixed blend */}
+              <div className={`flex items-center justify-between p-2.5 rounded-xl mb-3.5 mix-swap-panel ${isVendor ? 'bg-sage-900 shadow-md' : 'bg-sage-50'}`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center mix-swap-panel ${isVendor ? 'bg-sage-700' : 'bg-sage-100'}`}>
+                    {isVendor ? <Store className="w-4 h-4 text-gold-400" /> : <Users className="w-4 h-4 text-sage-600" />}
                   </div>
                   <div>
-                    <p className={`font-bold text-sm ${isVendor ? 'text-white' : 'text-sage-900'}`}>
+                    <p className={`font-bold text-xs sm:text-sm mix-swap-panel ${isVendor ? 'text-white' : 'text-sage-900'}`}>
                       {isVendor ? 'Vendor Account' : 'Customer Account'}
                     </p>
-                    <p className={`text-xs ${isVendor ? 'text-sage-300' : 'text-sage-600'}`}>
+                    <p className={`text-[11px] mix-swap-panel ${isVendor ? 'text-sage-300' : 'text-sage-600'}`}>
                       {isVendor ? 'You offer event services' : 'You plan & book events'}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={resetRole}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${isVendor ? 'bg-sage-700 text-sage-200 hover:bg-sage-600' : 'bg-white text-sage-600 border border-sage-200 hover:border-sage-400'}`}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg mix-swap-panel ${isVendor ? 'bg-sage-700 text-sage-200 hover:bg-sage-600' : 'bg-white text-sage-600 border border-sage-200 hover:border-sage-400'}`}
                 >
                   Switch
                 </button>
               </div>
 
               {/* Heading */}
-              <h1 className="font-display text-3xl font-bold text-sage-900 mb-1">
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-sage-900 mb-1">
                 {mode === 'signin'
                   ? isVendor ? 'Vendor Sign In' : 'Welcome Back!'
                   : isVendor ? 'Create Vendor Account' : 'Create Your Account'}
               </h1>
-              <p className="text-dark-500 text-sm mb-6">
+              <p className="text-dark-500 text-xs sm:text-sm mb-3.5">
                 {mode === 'signin'
                   ? isVendor
                     ? 'Sign in to manage your bookings and listings.'
@@ -328,12 +290,12 @@ export default function AuthPage() {
               </p>
 
               {/* Sign In / Sign Up toggle */}
-              <div className="flex gap-1.5 p-1 bg-sage-50 rounded-xl mb-7">
+              <div className="flex gap-1.5 p-1 bg-sage-50 rounded-xl mb-3.5">
                 {(['signin', 'signup'] as const).map(m => (
                   <button
                     key={m}
                     onClick={() => switchMode(m)}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${
+                    className={`flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 ${
                       mode === m ? 'bg-white text-sage-600 shadow-sm' : 'text-dark-500 hover:text-sage-700'
                     }`}
                   >
@@ -343,10 +305,10 @@ export default function AuthPage() {
               </div>
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 {mode === 'signup' && (
                   <div className="animate-fade-up">
-                    <label className="block text-dark-700 font-bold text-sm mb-1.5">
+                    <label className="block text-dark-700 font-bold text-xs sm:text-sm mb-1">
                       {isVendor ? 'Business / Full Name' : 'Full Name'}
                     </label>
                     <div className="relative">
@@ -356,14 +318,14 @@ export default function AuthPage() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder={isVendor ? 'Your business name' : 'Your full name'}
-                        className="w-full pl-10 pr-4 py-3 border border-sage-200 rounded-xl text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 hover:border-sage-300 font-medium"
+                        className="w-full pl-9 pr-3.5 py-2 border border-sage-200 rounded-xl text-xs sm:text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 font-medium"
                       />
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-dark-700 font-bold text-sm mb-1.5">Email Address</label>
+                  <label className="block text-dark-700 font-bold text-xs sm:text-sm mb-1">Email Address</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
                     <input
@@ -372,62 +334,13 @@ export default function AuthPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
                       required
-                      className="w-full pl-10 pr-4 py-3 border border-sage-200 rounded-xl text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 hover:border-sage-300 font-medium"
+                      className="w-full pl-9 pr-3.5 py-2 border border-sage-200 rounded-xl text-xs sm:text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 font-medium"
                     />
                   </div>
                 </div>
 
-                {mode === 'signup' && (
-                  <div className="animate-fade-up">
-                    <label className="block text-dark-700 font-bold text-sm mb-1.5">Mobile Number</label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
-                        <input
-                          type="tel"
-                          value={mobileNumber}
-                          onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          placeholder="10-digit mobile number"
-                          className="w-full pl-10 pr-4 py-3 border border-sage-200 rounded-xl text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 hover:border-sage-300 font-medium"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={sendOtpCode}
-                        disabled={otpTimer > 0}
-                        className="px-4 py-3 bg-sage-800 hover:bg-sage-700 disabled:bg-sage-200 text-white disabled:text-dark-400 font-bold text-xs rounded-xl transition-all whitespace-nowrap flex-shrink-0"
-                      >
-                        {otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Send OTP'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {mode === 'signup' && otpSent && (
-                  <div className="animate-fade-up space-y-2">
-                    {otpNotice && (
-                      <div className="p-2.5 bg-sage-50 border border-sage-200 rounded-xl text-xs text-sage-800 font-bold">
-                        {otpNotice}
-                      </div>
-                    )}
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5">Verification OTP</label>
-                      <div className="relative">
-                        <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
-                        <input
-                          type="text"
-                          value={otp}
-                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                          placeholder="6-digit verification code"
-                          className="w-full pl-10 pr-4 py-3 border border-sage-200 rounded-xl text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 hover:border-sage-300 font-medium"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <div>
-                  <label className="block text-dark-700 font-bold text-sm mb-1.5">Password</label>
+                  <label className="block text-dark-700 font-bold text-xs sm:text-sm mb-1">Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
                     <input
@@ -436,7 +349,7 @@ export default function AuthPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder={mode === 'signup' ? 'Min 6 characters' : 'Your password'}
                       required
-                      className="w-full pl-10 pr-10 py-3 border border-sage-200 rounded-xl text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 hover:border-sage-300 font-medium"
+                      className="w-full pl-9 pr-9 py-2 border border-sage-200 rounded-xl text-xs sm:text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 font-medium"
                     />
                     <button
                       type="button"
@@ -448,69 +361,28 @@ export default function AuthPage() {
                   </div>
                 </div>
 
-                {mode === 'signup' && (
-                  <div className="animate-fade-up">
-                    <label className="block text-dark-700 font-bold text-sm mb-1.5">Confirm Password</label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
-                      <input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter your password"
-                        required
-                        className="w-full pl-10 pr-10 py-3 border border-sage-200 rounded-xl text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 hover:border-sage-300 font-medium"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-sage-700 transition-colors"
-                      >
-                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {mode === 'signin' && (
                   <div className="flex justify-end">
-                    <button type="button" className="text-sage-600 text-sm font-bold hover:underline">
+                    <button type="button" className="text-sage-600 text-xs font-bold hover:underline">
                       Forgot password?
                     </button>
                   </div>
                 )}
 
-                {mode === 'signup' && (
-                  <label className="flex items-start gap-2.5 cursor-pointer text-xs text-dark-500 font-medium my-4 select-none animate-fade-up">
-                    <input
-                      type="checkbox"
-                      checked={agreeTerms}
-                      onChange={(e) => setAgreeTerms(e.target.checked)}
-                      className="mt-0.5 rounded text-sage-600 focus:ring-sage-400 border-sage-200"
-                    />
-                    <span>
-                      I agree to Festivo's{' '}
-                      <a href="/terms" target="_blank" rel="noreferrer" className="text-sage-700 font-bold hover:underline">Terms &amp; Conditions</a>
-                      {' '}and{' '}
-                      <a href="/privacy" target="_blank" rel="noreferrer" className="text-sage-700 font-bold hover:underline">Privacy Policy</a>
-                    </span>
-                  </label>
-                )}
-
                 {error && (
-                  <div className="p-3 bg-cream-100 border border-cream-300 rounded-xl animate-fade-in">
-                    <p className="text-cream-900 text-sm font-bold">{error}</p>
+                  <div className="p-2.5 bg-cream-100 border border-cream-300 rounded-xl animate-fade-in">
+                    <p className="text-cream-900 text-xs font-bold">{error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow hover:scale-[1.01] transition-all duration-300 active:scale-95 disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 sm:py-3 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow transition-all duration-300 active:scale-95 disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2 text-xs sm:text-sm"
                 >
                   {loading ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       Please wait...
                     </>
                   ) : (
@@ -525,7 +397,7 @@ export default function AuthPage() {
               </form>
 
               {/* Quick role switch hint */}
-              <div className="mt-6 p-4 bg-sage-50 rounded-xl border border-sage-100 text-center">
+              <div className="mt-3.5 p-2.5 bg-sage-50 rounded-xl border border-sage-100 text-center">
                 <p className="text-dark-500 text-xs font-medium">
                   {isVendor ? (
                     <>Are you here to plan an event?{' '}
@@ -543,7 +415,7 @@ export default function AuthPage() {
                 </p>
               </div>
 
-              <p className="text-center text-dark-500 text-xs mt-5 font-medium">
+              <p className="text-center text-dark-500 text-[11px] mt-3 font-medium">
                 By continuing, you agree to Festivo's{' '}
                 <button className="text-sage-600 font-bold hover:underline">Terms</button> &{' '}
                 <button className="text-sage-600 font-bold hover:underline">Privacy Policy</button>.
@@ -629,21 +501,19 @@ function RoleSelectionScreen({
               />
 
               {/* Vendor Card */}
-              <div className="relative">
-                <RoleCard
-                  role="vendor"
-                  icon={Store}
-                  accentIcon={Briefcase}
-                  title="Vendor Portal"
-                  subtitle="Enrolled Business Partner"
-                  description="List your business by category, upload portfolio, and manage customer bookings."
-                  features={VENDOR_FEATURES.slice(0, 3)}
-                  accent="gold"
-                  ctaLabel="Vendor Sign In / Sign Up"
-                  mounted={mounted}
-                  onClick={() => onSelect('vendor')}
-                />
-              </div>
+              <RoleCard
+                role="vendor"
+                icon={Store}
+                accentIcon={Briefcase}
+                title="Vendor Portal"
+                subtitle="Enrolled Business Partner"
+                description="List your business by category, upload portfolio, and manage customer bookings."
+                features={VENDOR_FEATURES.slice(0, 3)}
+                accent="gold"
+                ctaLabel="Vendor Sign In / Sign Up"
+                mounted={mounted}
+                onClick={() => onSelect('vendor')}
+              />
             </>
           )}
 
