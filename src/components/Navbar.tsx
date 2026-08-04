@@ -121,47 +121,14 @@ export default function Navbar() {
                 </button>
               </>
             ) : (
-              <div className="relative group">
-                <button
-                  className={`text-sm font-bold px-4 py-2 rounded-xl transition-all duration-200 flex items-center gap-1.5 ${
-                    isTransparent ? 'text-white/95 hover:bg-white/10' : 'text-sage-700 hover:bg-sage-100'
-                  }`}
-                >
-                  Sign In
-                  <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 group-hover:rotate-180" />
-                </button>
-                {/* Dropdown */}
-                <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  <div className="bg-white rounded-2xl shadow-card-hover border border-sage-100 p-2 w-56">
-                    <button
-                      onClick={() => navigate('/auth')}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-sage-50 transition-colors text-left group/customer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-sage-100 flex items-center justify-center flex-shrink-0 group-hover/customer:bg-sage-200 transition-colors">
-                        <User className="w-4 h-4 text-sage-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sage-900 font-bold text-sm">Customer Portal</p>
-                        <p className="text-dark-500 text-[11px] font-medium">Plan & book events</p>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => navigate('/auth')}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-sage-50 transition-colors text-left group/vendor"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-gold-100 flex items-center justify-center flex-shrink-0">
-                        <Store className="w-4 h-4 text-gold-700" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sage-900 font-bold text-sm">Vendor Portal</p>
-                        <p className="text-dark-500 text-[11px] font-medium">Enroll service by category</p>
-                      </div>
-                    </button>
-
-                  </div>
-                </div>
-              </div>
+              <button
+                onClick={() => navigate('/auth?role=customer')}
+                className={`text-sm font-bold px-4 py-2 rounded-xl transition-all duration-200 ${
+                  isTransparent ? 'text-white/95 hover:bg-white/10' : 'text-sage-700 hover:bg-sage-100'
+                }`}
+              >
+                Sign In
+              </button>
             )}
             <button
               onClick={() => navigate('/vendors')}
@@ -206,7 +173,7 @@ export default function Navbar() {
             ) : (
               <div className="space-y-2">
                 <button
-                  onClick={() => { setMobileOpen(false); navigate('/auth'); }}
+                  onClick={() => { setMobileOpen(false); navigate('/auth?role=customer'); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-sage-300 text-sage-700 hover:border-sage-500 transition-colors"
                 >
                   <User className="w-4 h-4 text-sage-600" />
@@ -216,7 +183,7 @@ export default function Navbar() {
                   </div>
                 </button>
                 <button
-                  onClick={() => { setMobileOpen(false); navigate('/auth'); }}
+                  onClick={() => { setMobileOpen(false); navigate('/auth?role=vendor'); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-sage-900 text-white transition-colors"
                 >
                   <Store className="w-4 h-4 text-gold-400" />

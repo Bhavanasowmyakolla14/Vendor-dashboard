@@ -4,7 +4,7 @@ import {
   Sparkles, Mail, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft,
   CheckCircle2, Building2, Users, Shield, Zap,
   Store, Search, CalendarCheck,
-  TrendingUp, Heart, Briefcase
+  TrendingUp, Heart, Briefcase, Phone
 } from 'lucide-react';
 import { useAuth, type UserRole } from '../lib/auth';
 
@@ -42,7 +42,9 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { signIn, signUp, user, profile, setDemoAdmin } = useAuth();
 
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [searchParams] = useSearchParams();
+  const initialRole = (searchParams.get('role') as UserRole) || 'customer';
+  const [role, setRole] = useState<UserRole | null>(initialRole);
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -52,6 +54,34 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
+
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [otpNotice, setOtpNotice] = useState('');
+
+  useEffect(() => {
+    let t: any;
+    if (otpTimer > 0) {
+      t = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+    }
+    return () => clearTimeout(t);
+  }, [otpTimer]);
+
+  const sendOtpCode = () => {
+    if (!mobileNumber.trim() || mobileNumber.length < 10) {
+      setError('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    setError('');
+    setOtpSent(true);
+    setOtpTimer(60);
+    setOtpNotice('✓ Verification code sent! Use mock OTP: 123456');
+  };
 
   const slides = role === 'vendor' ? vendorSlides : customerSlides;
 
@@ -84,7 +114,12 @@ export default function AuthPage() {
 
     if (mode === 'signup') {
       if (!name.trim()) return setError('Please enter your full name');
+      if (!mobileNumber.trim()) return setError('Please enter your mobile number');
+      if (!otp.trim()) return setError('Please enter the OTP');
+      if (otp !== '123456') return setError('Invalid OTP. Please use the verification code 123456');
       if (password.length < 6) return setError('Password must be at least 6 characters');
+      if (password !== confirmPassword) return setError('Passwords do not match');
+      if (!agreeTerms) return setError('You must agree to the Terms & Conditions');
     }
 
     setLoading(true);
@@ -106,6 +141,13 @@ export default function AuthPage() {
   const switchMode = (m: 'signin' | 'signup') => {
     setMode(m);
     setError('');
+    setConfirmPassword('');
+    setMobileNumber('');
+    setOtp('');
+    setAgreeTerms(false);
+    setOtpSent(false);
+    setOtpTimer(0);
+    setOtpNotice('');
   };
 
   const resetRole = () => {
@@ -114,6 +156,13 @@ export default function AuthPage() {
     setName('');
     setEmail('');
     setPassword('');
+    setConfirmPassword('');
+    setMobileNumber('');
+    setOtp('');
+    setAgreeTerms(false);
+    setOtpSent(false);
+    setOtpTimer(0);
+    setOtpNotice('');
   };
 
   const slide = slides[slideIndex] ?? slides[0];
@@ -339,6 +388,55 @@ export default function AuthPage() {
                   </div>
                 </div>
 
+                {mode === 'signup' && (
+                  <div className="animate-fade-up">
+                    <label className="block text-dark-700 font-bold text-xs sm:text-sm mb-1">Mobile Number</label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
+                        <input
+                          type="tel"
+                          value={mobileNumber}
+                          onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          placeholder="10-digit mobile number"
+                          className="w-full pl-9 pr-3.5 py-2 border border-sage-200 rounded-xl text-xs sm:text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 font-medium"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={sendOtpCode}
+                        disabled={otpTimer > 0}
+                        className="px-4 py-2 bg-sage-800 hover:bg-sage-700 disabled:bg-sage-200 text-white disabled:text-dark-400 font-bold text-xs rounded-xl transition-all whitespace-nowrap flex-shrink-0"
+                      >
+                        {otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Send OTP'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {mode === 'signup' && otpSent && (
+                  <div className="animate-fade-up space-y-2">
+                    {otpNotice && (
+                      <div className="p-2 bg-sage-50 border border-sage-200 rounded-xl text-xs text-sage-800 font-bold">
+                        {otpNotice}
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-dark-700 font-bold text-xs sm:text-sm mb-1">Verification OTP</label>
+                      <div className="relative">
+                        <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
+                        <input
+                          type="text"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="6-digit verification code"
+                          className="w-full pl-9 pr-3.5 py-2 border border-sage-200 rounded-xl text-xs sm:text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-dark-700 font-bold text-xs sm:text-sm mb-1">Password</label>
                   <div className="relative">
@@ -360,6 +458,47 @@ export default function AuthPage() {
                     </button>
                   </div>
                 </div>
+
+                {mode === 'signup' && (
+                  <div className="animate-fade-up">
+                    <label className="block text-dark-700 font-bold text-xs sm:text-sm mb-1">Confirm Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter your password"
+                        required
+                        className="w-full pl-9 pr-9 py-2 border border-sage-200 rounded-xl text-xs sm:text-sm text-dark-800 bg-white outline-none transition-all focus:ring-2 focus:ring-sage-300 focus:border-sage-400 font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-sage-700 transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {mode === 'signup' && (
+                  <label className="flex items-start gap-2.5 cursor-pointer text-xs text-dark-500 font-medium my-4 select-none animate-fade-up">
+                    <input
+                      type="checkbox"
+                      checked={agreeTerms}
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      className="mt-0.5 rounded text-sage-600 focus:ring-sage-400 border-sage-200"
+                    />
+                    <span>
+                      I agree to Festivo's{' '}
+                      <a href="/terms" target="_blank" rel="noreferrer" className="text-sage-700 font-bold hover:underline">Terms &amp; Conditions</a>
+                      {' '}and{' '}
+                      <a href="/privacy" target="_blank" rel="noreferrer" className="text-sage-700 font-bold hover:underline">Privacy Policy</a>
+                    </span>
+                  </label>
+                )}
 
                 {mode === 'signin' && (
                   <div className="flex justify-end">
