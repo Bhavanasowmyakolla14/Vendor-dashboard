@@ -565,7 +565,6 @@ function RoleSelectionScreen({
   onSelect: (role: UserRole) => void;
   onBack: () => void;
 }) {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const showAdmin = searchParams.get('admin') === 'true';
 
@@ -644,12 +643,6 @@ function RoleSelectionScreen({
                   mounted={mounted}
                   onClick={() => onSelect('vendor')}
                 />
-                <button
-                  onClick={(e) => { e.stopPropagation(); navigate('/vendor-registration'); }}
-                  className="w-full mt-3 py-2.5 bg-gradient-brand text-white font-bold text-xs rounded-xl hover:shadow-glow transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Building2 className="w-4 h-4" /> Submit Complete Vendor Enrollment Form →
-                </button>
               </div>
             </>
           )}

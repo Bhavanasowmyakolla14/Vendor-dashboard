@@ -1370,14 +1370,14 @@ export default function VendorDashboard() {
                 /* PUBLIC PROFILE PREVIEW MODE */
                 <div className="space-y-6 animate-fade-in">
                   {/* Hex/Mesh Gradient Banner */}
-                  <div className="bg-gradient-to-br from-purple-950 via-slate-900 to-black text-white rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-card border border-white/5">
+                  <div className="bg-gradient-to-br from-sage-950 via-slate-900 to-black text-white rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-card border border-white/5">
                     {/* Background hexagons grid pattern and mesh glow */}
                     <div 
                       className="absolute inset-0 opacity-15 pointer-events-none"
                       style={{
                         backgroundImage: `
-                          radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.25) 0%, transparent 50%),
-                          radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.2) 0%, transparent 50%),
+                          radial-gradient(circle at 20% 30%, rgba(70, 107, 72, 0.25) 0%, transparent 50%),
+                          radial-gradient(circle at 80% 70%, rgba(193, 147, 80, 0.2) 0%, transparent 50%),
                           linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
                           linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)
                         `,
@@ -1389,7 +1389,7 @@ export default function VendorDashboard() {
                       {/* Left: Avatar, Name, Category and Details */}
                       <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
                         {/* Circle Initial Avatar */}
-                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-purple-600 border-4 border-purple-500/30 flex items-center justify-center text-white text-3xl md:text-4xl font-display font-extrabold shadow-glow shrink-0">
+                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-sage-600 border-4 border-sage-500/30 flex items-center justify-center text-white text-3xl md:text-4xl font-display font-extrabold shadow-glow shrink-0">
                           {primaryVendor.name ? primaryVendor.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() : 'V'}
                         </div>
                         
@@ -1407,17 +1407,17 @@ export default function VendorDashboard() {
                             @{primaryVendor.slug}
                           </p>
                           
-                          <p className="font-display text-lg font-bold text-purple-400 capitalize">
+                          <p className="font-display text-lg font-bold text-gold-400 capitalize">
                             {primaryVendor.category}
                           </p>
                           
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-white/70 text-sm">
                             <span className="flex items-center gap-1">
-                              <MapPin className="w-4 h-4 text-purple-400" />
+                              <MapPin className="w-4 h-4 text-gold-400" />
                               {primaryVendor.location}
                             </span>
                             <span className="flex items-center gap-1">
-                              <Users className="w-4 h-4 text-purple-400" />
+                              <Users className="w-4 h-4 text-gold-400" />
                               {primaryVendor.capacity || 'Individual'}
                             </span>
                             {(vendorProfile?.instagram || primaryVendor.details?.instagram) && (
@@ -1425,9 +1425,9 @@ export default function VendorDashboard() {
                                 href={`https://instagram.com/${(vendorProfile?.instagram || primaryVendor.details?.instagram).replace('@', '')}`}
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="flex items-center gap-1 hover:text-purple-400 transition-colors"
+                                className="flex items-center gap-1 hover:text-gold-400 transition-colors"
                               >
-                                <Instagram className="w-4 h-4 text-purple-400" />
+                                <Instagram className="w-4 h-4 text-gold-400" />
                                 {vendorProfile?.instagram || primaryVendor.details?.instagram}
                               </a>
                             )}
@@ -1443,7 +1443,7 @@ export default function VendorDashboard() {
                         </div>
                         <button
                           onClick={() => setIsEditingProfile(true)}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-md"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-sage-600 hover:bg-sage-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-md"
                         >
                           <Plus className="w-4 h-4" /> Edit profile & packages
                         </button>
@@ -1473,7 +1473,7 @@ export default function VendorDashboard() {
                                 key={tag} 
                                 className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
                                   idx === 0 
-                                    ? 'bg-purple-600/10 border-purple-500 text-purple-700 shadow-sm' 
+                                    ? 'bg-sage-50 border-sage-500 text-sage-800 shadow-sm' 
                                     : 'bg-white text-dark-800 border-sage-200'
                                 }`}
                               >
@@ -1492,7 +1492,7 @@ export default function VendorDashboard() {
                         <div className="flex flex-wrap gap-2">
                           {(primaryVendor.details?.serviceAreas || [primaryVendor.location]).map((area: string) => (
                             <span key={area} className="px-4 py-2 bg-white text-dark-800 border border-sage-200 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                              <MapPin className="w-3.5 h-3.5 text-purple-500" /> {area}
+                              <MapPin className="w-3.5 h-3.5 text-sage-600" /> {area}
                             </span>
                           ))}
                         </div>
@@ -1503,7 +1503,7 @@ export default function VendorDashboard() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                           <div>
                             <h4 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                              <Globe className="w-4 h-4 text-purple-500" /> Languages Spoken
+                              <Globe className="w-4 h-4 text-sage-600" /> Languages Spoken
                             </h4>
                             <p className="text-dark-800 text-sm font-semibold">
                               {(primaryVendor.details?.languages || ['English']).join(' · ')}
@@ -1511,7 +1511,7 @@ export default function VendorDashboard() {
                           </div>
                           <div>
                             <h4 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                              <Clock className="w-4 h-4 text-purple-500" /> Availability
+                              <Clock className="w-4 h-4 text-sage-600" /> Availability
                             </h4>
                             <p className="text-dark-800 text-sm font-semibold">
                               {(primaryVendor.details?.workingDays || ['Sat', 'Sun']).join(', ')}
@@ -1525,7 +1525,7 @@ export default function VendorDashboard() {
                         <h3 className="font-display text-lg font-bold text-sage-900 mb-4">Reviews</h3>
                         {profileReviewsLoading ? (
                           <div className="flex items-center justify-center py-6">
-                            <RefreshCw className="w-6 h-6 text-purple-600 animate-spin" />
+                            <RefreshCw className="w-6 h-6 text-sage-600 animate-spin" />
                           </div>
                         ) : profileReviews.length === 0 ? (
                           <div className="space-y-1">
@@ -1557,12 +1557,12 @@ export default function VendorDashboard() {
 
                     {/* Right column: Package Quick Link or Profile Health */}
                     <div className="lg:col-span-1 space-y-6">
-                      <div className="bg-gradient-to-br from-purple-900 to-indigo-950 text-white rounded-2xl p-5 border border-white/5">
-                        <h4 className="font-display font-bold text-sm text-purple-300 mb-2 flex items-center gap-1.5">
+                      <div className="bg-gradient-to-br from-sage-900 to-dark-950 text-white rounded-2xl p-5 border border-white/5">
+                        <h4 className="font-display font-bold text-sm text-gold-400 mb-2 flex items-center gap-1.5">
                           <Sparkles className="w-4 h-4" /> Profile Completeness
                         </h4>
                         <div className="w-full bg-white/10 rounded-full h-2.5 mt-3 overflow-hidden">
-                          <div className="h-full bg-purple-400 rounded-full transition-all" style={{ width: '85%' }} />
+                          <div className="h-full bg-gold-500 rounded-full transition-all" style={{ width: '85%' }} />
                         </div>
                         <p className="text-white/60 text-xs mt-3 leading-relaxed">
                           Your profile is 85% complete. Add your GST number and verify your bank account to unlock fast payouts.
@@ -1601,7 +1601,7 @@ export default function VendorDashboard() {
                   {/* Basic Business Details */}
                   <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
                     <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
-                      <Building2 className="w-5 h-5 text-purple-500" /> Basic Details
+                      <Building2 className="w-5 h-5 text-sage-600" /> Basic Details
                     </h3>
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1666,7 +1666,7 @@ export default function VendorDashboard() {
                   {/* Tags and Custom Fields */}
                   <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
                     <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
-                      <Sparkles className="w-5 h-5 text-purple-500" /> Custom Attributes
+                      <Sparkles className="w-5 h-5 text-sage-600" /> Custom Attributes
                     </h3>
                     <div className="space-y-4">
                       <div>
@@ -1719,7 +1719,7 @@ export default function VendorDashboard() {
                   {/* KYC & Billing */}
                   <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
                     <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
-                      <FileText className="w-5 h-5 text-purple-500" /> Verification (KYC) & Bank Info
+                      <FileText className="w-5 h-5 text-sage-600" /> Verification (KYC) & Bank Info
                     </h3>
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1748,7 +1748,7 @@ export default function VendorDashboard() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
-                            <CreditCard className="w-3.5 h-3.5 text-purple-500" /> Bank Account Number
+                            <CreditCard className="w-3.5 h-3.5 text-sage-600" /> Bank Account Number
                           </label>
                           <input
                             type="text"
@@ -1775,12 +1775,12 @@ export default function VendorDashboard() {
                   {/* Social Handles */}
                   <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
                     <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
-                      <Globe className="w-5 h-5 text-purple-500" /> Social Links
+                      <Globe className="w-5 h-5 text-sage-600" /> Social Links
                     </h3>
                     <div className="space-y-4">
                       <div>
                         <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
-                          <Instagram className="w-3.5 h-3.5 text-purple-500" /> Instagram Handle
+                          <Instagram className="w-3.5 h-3.5 text-sage-600" /> Instagram Handle
                         </label>
                         <input
                           type="text"
@@ -1792,7 +1792,7 @@ export default function VendorDashboard() {
                       </div>
                       <div>
                         <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
-                          <Facebook className="w-3.5 h-3.5 text-purple-500" /> Facebook Page Link
+                          <Facebook className="w-3.5 h-3.5 text-sage-600" /> Facebook Page Link
                         </label>
                         <input
                           type="text"
@@ -1804,7 +1804,7 @@ export default function VendorDashboard() {
                       </div>
                       <div>
                         <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
-                          <Globe className="w-3.5 h-3.5 text-purple-500" /> Website URL
+                          <Globe className="w-3.5 h-3.5 text-sage-600" /> Website URL
                         </label>
                         <input
                           type="text"
@@ -1822,7 +1822,7 @@ export default function VendorDashboard() {
                     <button
                       onClick={handleSaveProfile}
                       disabled={savingProfile}
-                      className="inline-flex items-center gap-2 px-6 py-3.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-xl hover:shadow-glow transition-all text-sm cursor-pointer"
+                      className="inline-flex items-center gap-2 px-6 py-3.5 bg-sage-600 hover:bg-sage-500 disabled:opacity-50 text-white font-bold rounded-xl hover:shadow-glow transition-all text-sm cursor-pointer"
                     >
                       {savingProfile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Changes
                     </button>
