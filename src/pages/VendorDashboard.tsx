@@ -5,7 +5,7 @@ import {
   CheckCircle2, Clock, XCircle, ArrowRight, LogOut, Sparkles,
   BarChart3, Bell, Eye, Wallet, PieChart, Smile, RefreshCw, X, Check,
   Package, MessageSquare, Send, Trash2, Save, Instagram, Facebook, Globe,
-  FileText, CreditCard
+  FileText, CreditCard, MapPin, ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { supabase, sanitizeVendors } from '../lib/supabase';
@@ -129,6 +129,8 @@ export default function VendorDashboard() {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const primaryVendor = vendors[0];
+  const categoryDef = primaryVendor ? getCategory(primaryVendor.category) : null;
   const [bookings, setBookings] = useState<BookingWithVendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'earnings' | 'analytics' | 'services' | 'availability' | 'chat' | 'profile'>('overview');
@@ -153,6 +155,27 @@ export default function VendorDashboard() {
   // Profile tab state
   const [vendorProfile, setVendorProfile] = useState<VendorProfileData | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileReviews, setProfileReviews] = useState<any[]>([]);
+  const [profileReviewsLoading, setProfileReviewsLoading] = useState(false);
+  const [profileEditForm, setProfileEditForm] = useState({
+    name: '',
+    category: '',
+    location: '',
+    description: '',
+    capacity: '',
+    tags: '',
+    serviceAreas: '',
+    languages: '',
+    workingDays: '',
+    gst_number: '',
+    pan_number: '',
+    bank_account: '',
+    ifsc: '',
+    instagram: '',
+    facebook: '',
+    website: ''
+  });
 
   const statsView = useInView<HTMLDivElement>();
   const listingsView = useInView<HTMLDivElement>();
@@ -256,32 +279,94 @@ export default function VendorDashboard() {
 
   // Fetch vendor profile when tab opens
   useEffect(() => {
-    if (activeTab !== 'profile' || vendors.length === 0) return;
+    if (activeTab !== 'profile' || vendors.length === 0 || !user) return;
     const fetchProfile = async () => {
-      const { data } = await supabase
-        .from('vendor_profiles')
-        .select('*')
-        .eq('vendor_id', vendors[0].id)
-        .maybeSingle();
+      let data = null;
+      try {
+        const { data: profileData, error } = await supabase
+          .from('vendor_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (!error && profileData) {
+          data = profileData;
+        } else {
+          // Fallback by vendor_id
+          const { data: fallbackData } = await supabase
+            .from('vendor_profiles')
+            .select('*')
+            .eq('vendor_id', vendors[0].id)
+            .maybeSingle();
+          if (fallbackData) data = fallbackData;
+        }
+      } catch (err) {
+        console.warn('Profile fetch error, using defaults:', err);
+      }
       if (data) {
         setVendorProfile(data as VendorProfileData);
       } else {
         setVendorProfile({
           vendor_id: vendors[0].id,
-          business_name: '',
-          bio: '',
+          business_name: vendors[0].name || '',
+          bio: vendors[0].description || '',
           gst_number: '',
           pan_number: '',
           bank_account: '',
           ifsc: '',
-          instagram: '',
-          facebook: '',
-          website: '',
+          instagram: vendors[0].details?.instagram || '',
+          facebook: vendors[0].details?.facebook || '',
+          website: vendors[0].details?.website || '',
         });
       }
     };
     fetchProfile();
+  }, [activeTab, vendors, user]);
+
+  // Fetch profile reviews when tab opens
+  useEffect(() => {
+    if (activeTab !== 'profile' || vendors.length === 0) return;
+    const fetchReviews = async () => {
+      setProfileReviewsLoading(true);
+      try {
+        const { data } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('vendor_id', vendors[0].id)
+          .order('created_at', { ascending: false });
+        if (data) {
+          setProfileReviews(data);
+        }
+      } catch (err) {
+        console.warn('Reviews fetch error:', err);
+      }
+      setProfileReviewsLoading(false);
+    };
+    fetchReviews();
   }, [activeTab, vendors]);
+
+  // Synchronize form values with vendor and profile data
+  useEffect(() => {
+    if (primaryVendor) {
+      setProfileEditForm({
+        name: primaryVendor.name || '',
+        category: primaryVendor.category || '',
+        location: primaryVendor.location || '',
+        description: primaryVendor.description || '',
+        capacity: primaryVendor.capacity || '',
+        tags: (primaryVendor.tags || []).join(', '),
+        serviceAreas: (primaryVendor.details?.serviceAreas || [primaryVendor.location || '']).join(', '),
+        languages: (primaryVendor.details?.languages || ['English']).join(', '),
+        workingDays: (primaryVendor.details?.workingDays || ['Sat', 'Sun']).join(', '),
+        gst_number: vendorProfile?.gst_number || '',
+        pan_number: vendorProfile?.pan_number || '',
+        bank_account: vendorProfile?.bank_account || '',
+        ifsc: vendorProfile?.ifsc || '',
+        instagram: vendorProfile?.instagram || primaryVendor.details?.instagram || '',
+        facebook: vendorProfile?.facebook || '',
+        website: vendorProfile?.website || ''
+      });
+    }
+  }, [primaryVendor, vendorProfile]);
 
   // Services handlers
   const handleAddService = async () => {
@@ -345,15 +430,90 @@ export default function VendorDashboard() {
 
   // Profile save handler
   const handleSaveProfile = async () => {
-    if (!vendorProfile) return;
+    if (!primaryVendor) return;
     setSavingProfile(true);
-    await supabase.from('vendor_profiles').upsert(vendorProfile);
+
+    const updatedTags = profileEditForm.tags.split(',').map(t => t.trim()).filter(Boolean);
+    const updatedServiceAreas = profileEditForm.serviceAreas.split(',').map(t => t.trim()).filter(Boolean);
+    const updatedLanguages = profileEditForm.languages.split(',').map(t => t.trim()).filter(Boolean);
+    const updatedWorkingDays = profileEditForm.workingDays.split(',').map(t => t.trim()).filter(Boolean);
+
+    const updatedVendor = {
+      ...primaryVendor,
+      name: profileEditForm.name,
+      category: profileEditForm.category,
+      location: profileEditForm.location,
+      description: profileEditForm.description,
+      capacity: profileEditForm.capacity,
+      tags: updatedTags,
+      details: {
+        ...primaryVendor.details,
+        serviceAreas: updatedServiceAreas,
+        languages: updatedLanguages,
+        workingDays: updatedWorkingDays,
+        instagram: profileEditForm.instagram,
+        facebook: profileEditForm.facebook,
+        website: profileEditForm.website,
+      }
+    };
+
+    // Update local state
+    setVendors(prev => prev.map(v => v.id === primaryVendor.id ? updatedVendor : v));
+
+    // Update local storage approved and pending lists
+    try {
+      const localApproved: Vendor[] = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
+      const localPending: Vendor[] = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
+      
+      const newApproved = localApproved.map(v => v.id === primaryVendor.id ? updatedVendor : v);
+      const newPending = localPending.map(v => v.id === primaryVendor.id ? updatedVendor : v);
+      
+      localStorage.setItem('festivo_approved_vendors', JSON.stringify(newApproved));
+      localStorage.setItem('festivo_pending_vendors', JSON.stringify(newPending));
+    } catch (err) {
+      console.warn('LocalStorage save error:', err);
+    }
+
+    // Update vendors table in Supabase
+    try {
+      await supabase.from('vendors').update({
+        name: profileEditForm.name,
+        category: profileEditForm.category,
+        location: profileEditForm.location,
+        description: profileEditForm.description,
+        capacity: profileEditForm.capacity,
+        tags: updatedTags,
+        details: updatedVendor.details
+      }).eq('id', primaryVendor.id);
+    } catch (err) {
+      console.warn('Supabase vendors update error:', err);
+    }
+
+    // Update/upsert vendor_profiles table in Supabase
+    try {
+      if (user) {
+        const profilePayload = {
+          user_id: user.id,
+          business_name: profileEditForm.name,
+          bio: profileEditForm.description,
+          gst_number: profileEditForm.gst_number,
+          pan_number: profileEditForm.pan_number,
+          bank_account: profileEditForm.bank_account,
+          bank_ifsc: profileEditForm.ifsc,
+          social_instagram: profileEditForm.instagram,
+          social_facebook: profileEditForm.facebook,
+          social_website: profileEditForm.website,
+        };
+        await supabase.from('vendor_profiles').upsert(profilePayload);
+      }
+    } catch (err) {
+      console.warn('Supabase vendor_profiles upsert error:', err);
+    }
+
     setSavingProfile(false);
+    setIsEditingProfile(false);
   };
-
-  const primaryVendor = vendors[0];
-  const categoryDef = primaryVendor ? getCategory(primaryVendor.category) : null;
-
+  
   const totalRevenue = bookings.filter(b => b.payment_status === 'paid').reduce((s, b) => s + b.total_amount, 0);
   const thisMonth = bookings.filter(b => {
     const d = new Date(b.created_at);
@@ -1204,153 +1364,473 @@ export default function VendorDashboard() {
             </div>
           )}
 
-          {activeTab === 'profile' && (
-            <div className="max-w-2xl mx-auto space-y-6">
-              <div className="bg-white rounded-2xl shadow-card p-8">
-                <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-sage-500" /> Account Settings
-                </h2>
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-dark-700 font-bold text-sm mb-1.5">Full Name</label>
-                    <div className="w-full px-4 py-3 border border-sage-200 rounded-xl text-sage-900 text-sm bg-sage-50/60">
-                      {profile?.full_name || user?.email?.split('@')[0] || '—'}
+          {activeTab === 'profile' && primaryVendor && (
+            <div className="max-w-7xl mx-auto space-y-6">
+              {!isEditingProfile ? (
+                /* PUBLIC PROFILE PREVIEW MODE */
+                <div className="space-y-6 animate-fade-in">
+                  {/* Hex/Mesh Gradient Banner */}
+                  <div className="bg-gradient-to-br from-purple-950 via-slate-900 to-black text-white rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-card border border-white/5">
+                    {/* Background hexagons grid pattern and mesh glow */}
+                    <div 
+                      className="absolute inset-0 opacity-15 pointer-events-none"
+                      style={{
+                        backgroundImage: `
+                          radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.25) 0%, transparent 50%),
+                          radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.2) 0%, transparent 50%),
+                          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)
+                        `,
+                        backgroundSize: '100% 100%, 100% 100%, 20px 20px, 20px 20px'
+                      }}
+                    />
+                    
+                    <div className="relative flex flex-col md:flex-row items-start justify-between gap-6 z-10">
+                      {/* Left: Avatar, Name, Category and Details */}
+                      <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
+                        {/* Circle Initial Avatar */}
+                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-purple-600 border-4 border-purple-500/30 flex items-center justify-center text-white text-3xl md:text-4xl font-display font-extrabold shadow-glow shrink-0">
+                          {primaryVendor.name ? primaryVendor.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() : 'V'}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">
+                              {primaryVendor.name}
+                            </h2>
+                            <span className="bg-green-500/20 border border-green-500/40 text-green-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wider uppercase">
+                              NEW
+                            </span>
+                          </div>
+                          
+                          <p className="text-white/40 text-xs font-mono">
+                            @{primaryVendor.slug}
+                          </p>
+                          
+                          <p className="font-display text-lg font-bold text-purple-400 capitalize">
+                            {primaryVendor.category}
+                          </p>
+                          
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-white/70 text-sm">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-4 h-4 text-purple-400" />
+                              {primaryVendor.location}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-4 h-4 text-purple-400" />
+                              {primaryVendor.capacity || 'Individual'}
+                            </span>
+                            {(vendorProfile?.instagram || primaryVendor.details?.instagram) && (
+                              <a 
+                                href={`https://instagram.com/${(vendorProfile?.instagram || primaryVendor.details?.instagram).replace('@', '')}`}
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="flex items-center gap-1 hover:text-purple-400 transition-colors"
+                              >
+                                <Instagram className="w-4 h-4 text-purple-400" />
+                                {vendorProfile?.instagram || primaryVendor.details?.instagram}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Public profile label & Edit button card */}
+                      <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 max-w-sm w-full md:w-80 flex flex-col gap-4 text-white shrink-0 self-stretch md:self-auto justify-center">
+                        <div>
+                          <p className="font-bold text-sm text-white/90">This is your public profile</p>
+                          <p className="text-xs text-white/60 mt-1">Clients see this page when they view or book you.</p>
+                        </div>
+                        <button
+                          onClick={() => setIsEditingProfile(true)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-md"
+                        >
+                          <Plus className="w-4 h-4" /> Edit profile & packages
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-dark-700 font-bold text-sm mb-1.5">Email Address</label>
-                    <div className="w-full px-4 py-3 border border-sage-200 rounded-xl text-sage-900 text-sm bg-sage-50/60">
-                      {user?.email}
+
+                  {/* Profile details sections */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left 2 columns: Bio, Specializations, Service Areas, Languages & Availability */}
+                    <div className="lg:col-span-2 space-y-6">
+                      {/* About / Bio */}
+                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
+                        <h3 className="font-display text-lg font-bold text-sage-900 mb-3">About / Bio</h3>
+                        <p className="text-dark-600 text-sm leading-relaxed whitespace-pre-line">
+                          {primaryVendor.description || 'No business description provided yet.'}
+                        </p>
+                      </div>
+
+                      {/* Specializations */}
+                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
+                        <h3 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-4">Specializations</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {primaryVendor.tags && primaryVendor.tags.length > 0 ? (
+                            primaryVendor.tags.map((tag, idx) => (
+                              <span 
+                                key={tag} 
+                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                                  idx === 0 
+                                    ? 'bg-purple-600/10 border-purple-500 text-purple-700 shadow-sm' 
+                                    : 'bg-white text-dark-800 border-sage-200'
+                                }`}
+                              >
+                                {tag}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-dark-400 italic">No specializations added.</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Service Areas */}
+                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
+                        <h3 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-4">Service Areas</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {(primaryVendor.details?.serviceAreas || [primaryVendor.location]).map((area: string) => (
+                            <span key={area} className="px-4 py-2 bg-white text-dark-800 border border-sage-200 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                              <MapPin className="w-3.5 h-3.5 text-purple-500" /> {area}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Languages and Availability */}
+                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                              <Globe className="w-4 h-4 text-purple-500" /> Languages Spoken
+                            </h4>
+                            <p className="text-dark-800 text-sm font-semibold">
+                              {(primaryVendor.details?.languages || ['English']).join(' · ')}
+                            </p>
+                          </div>
+                          <div>
+                            <h4 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                              <Clock className="w-4 h-4 text-purple-500" /> Availability
+                            </h4>
+                            <p className="text-dark-800 text-sm font-semibold">
+                              {(primaryVendor.details?.workingDays || ['Sat', 'Sun']).join(', ')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Reviews Preview */}
+                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
+                        <h3 className="font-display text-lg font-bold text-sage-900 mb-4">Reviews</h3>
+                        {profileReviewsLoading ? (
+                          <div className="flex items-center justify-center py-6">
+                            <RefreshCw className="w-6 h-6 text-purple-600 animate-spin" />
+                          </div>
+                        ) : profileReviews.length === 0 ? (
+                          <div className="space-y-1">
+                            <p className="font-bold text-sage-900 text-sm">No reviews yet</p>
+                            <p className="text-dark-500 text-xs">No reviews yet for {primaryVendor.name}.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {profileReviews.map((review) => (
+                              <div key={review.id} className="border border-sage-100 rounded-xl p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="font-bold text-sage-900 text-sm">{review.customer_name}</p>
+                                  <div className="flex gap-0.5">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                      <Star 
+                                        key={i} 
+                                        className={`w-3.5 h-3.5 ${i < review.rating ? 'text-gold-500 fill-gold-500' : 'text-cream-200'}`} 
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                                <p className="text-dark-600 text-xs leading-relaxed">{review.comment}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-dark-700 font-bold text-sm mb-1.5">Account Role</label>
-                    <div className="w-full px-4 py-3 border border-gold-200 rounded-xl text-gold-700 text-sm bg-gold-50 flex items-center gap-2 font-semibold">
-                      <Star className="w-4 h-4" /> Vendor Account
+
+                    {/* Right column: Package Quick Link or Profile Health */}
+                    <div className="lg:col-span-1 space-y-6">
+                      <div className="bg-gradient-to-br from-purple-900 to-indigo-950 text-white rounded-2xl p-5 border border-white/5">
+                        <h4 className="font-display font-bold text-sm text-purple-300 mb-2 flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4" /> Profile Completeness
+                        </h4>
+                        <div className="w-full bg-white/10 rounded-full h-2.5 mt-3 overflow-hidden">
+                          <div className="h-full bg-purple-400 rounded-full transition-all" style={{ width: '85%' }} />
+                        </div>
+                        <p className="text-white/60 text-xs mt-3 leading-relaxed">
+                          Your profile is 85% complete. Add your GST number and verify your bank account to unlock fast payouts.
+                        </p>
+                      </div>
+
+                      <div className="bg-white rounded-2xl shadow-card p-5 border border-sage-100/60">
+                        <h4 className="font-bold text-sage-900 text-sm mb-3">Quick Navigation</h4>
+                        <div className="space-y-2">
+                          <button onClick={() => navigate(`/vendors/${primaryVendor.slug}`)} className="w-full text-left px-3 py-2 bg-sage-50 hover:bg-sage-100 text-sage-800 text-xs font-bold rounded-xl transition-all flex items-center justify-between">
+                            View public storefront <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setActiveTab('services')} className="w-full text-left px-3 py-2 bg-sage-50 hover:bg-sage-100 text-sage-800 text-xs font-bold rounded-xl transition-all flex items-center justify-between">
+                            Manage packages <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                /* EDIT PROFILE MODE */
+                <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <button 
+                      onClick={() => setIsEditingProfile(false)}
+                      className="px-4 py-2 border border-cream-300 text-cream-800 font-bold rounded-xl hover:bg-cream-100 transition-all text-sm flex items-center gap-1.5"
+                    >
+                      <ArrowLeft className="w-4 h-4" /> Back to Public Profile
+                    </button>
+                    <h2 className="font-display text-xl font-bold text-sage-900">
+                      Edit Profile & Packages
+                    </h2>
+                  </div>
 
-              {vendorProfile && (
-                <div className="bg-white rounded-2xl shadow-card p-8">
-                  <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-sage-500" /> Business Profile
-                  </h2>
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5">Business Name</label>
-                      <input
-                        type="text"
-                        value={vendorProfile.business_name}
-                        onChange={e => setVendorProfile(p => p ? { ...p, business_name: e.target.value } : p)}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="Your business name"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5">Bio / Description</label>
-                      <textarea
-                        value={vendorProfile.bio}
-                        onChange={e => setVendorProfile(p => p ? { ...p, bio: e.target.value } : p)}
-                        rows={3}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="Tell customers about your business..."
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-dark-700 font-bold text-sm mb-1.5">GST Number</label>
-                        <input
-                          type="text"
-                          value={vendorProfile.gst_number}
-                          onChange={e => setVendorProfile(p => p ? { ...p, gst_number: e.target.value } : p)}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="22AAAAA0000A1Z5"
-                        />
+                  {/* Basic Business Details */}
+                  <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
+                    <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
+                      <Building2 className="w-5 h-5 text-purple-500" /> Basic Details
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Business Name</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.name}
+                            onChange={e => setProfileEditForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="Your business name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Business Category / Role</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.category}
+                            onChange={e => setProfileEditForm(f => ({ ...f, category: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="e.g. reel maker, Photographer"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-dark-700 font-bold text-sm mb-1.5">PAN Number</label>
-                        <input
-                          type="text"
-                          value={vendorProfile.pan_number}
-                          onChange={e => setVendorProfile(p => p ? { ...p, pan_number: e.target.value } : p)}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="AAAAA0000A"
-                        />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Location</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.location}
+                            onChange={e => setProfileEditForm(f => ({ ...f, location: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="City, State"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Team Size / Capacity</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.capacity}
+                            onChange={e => setProfileEditForm(f => ({ ...f, capacity: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="e.g. Team of 4, Individual"
+                          />
+                        </div>
                       </div>
+
                       <div>
-                        <label className="block text-dark-700 font-bold text-sm mb-1.5 flex items-center gap-1"><CreditCard className="w-3.5 h-3.5" /> Bank Account</label>
-                        <input
-                          type="text"
-                          value={vendorProfile.bank_account}
-                          onChange={e => setVendorProfile(p => p ? { ...p, bank_account: e.target.value } : p)}
+                        <label className="block text-dark-700 font-bold text-xs mb-1.5">Business Bio / Description</label>
+                        <textarea
+                          value={profileEditForm.description}
+                          onChange={e => setProfileEditForm(f => ({ ...f, description: e.target.value }))}
+                          rows={4}
                           className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="0000 0000 0000"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-dark-700 font-bold text-sm mb-1.5">IFSC Code</label>
-                        <input
-                          type="text"
-                          value={vendorProfile.ifsc}
-                          onChange={e => setVendorProfile(p => p ? { ...p, ifsc: e.target.value } : p)}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="HDFC0000000"
+                          placeholder="Tell customers about your business..."
                         />
                       </div>
                     </div>
                   </div>
 
-                  <h3 className="font-display text-lg font-bold text-sage-900 mt-8 mb-4 flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-sage-500" /> Social Links
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5 flex items-center gap-1"><Instagram className="w-3.5 h-3.5" /> Instagram</label>
-                      <input
-                        type="text"
-                        value={vendorProfile.instagram}
-                        onChange={e => setVendorProfile(p => p ? { ...p, instagram: e.target.value } : p)}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="@yourbusiness"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5 flex items-center gap-1"><Facebook className="w-3.5 h-3.5" /> Facebook</label>
-                      <input
-                        type="text"
-                        value={vendorProfile.facebook}
-                        onChange={e => setVendorProfile(p => p ? { ...p, facebook: e.target.value } : p)}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="facebook.com/yourbusiness"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5 flex items-center gap-1"><Globe className="w-3.5 h-3.5" /> Website</label>
-                      <input
-                        type="text"
-                        value={vendorProfile.website}
-                        onChange={e => setVendorProfile(p => p ? { ...p, website: e.target.value } : p)}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="https://yourbusiness.com"
-                      />
+                  {/* Tags and Custom Fields */}
+                  <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
+                    <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
+                      <Sparkles className="w-5 h-5 text-purple-500" /> Custom Attributes
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-dark-700 font-bold text-xs mb-1.5">Specializations (comma-separated)</label>
+                        <input
+                          type="text"
+                          value={profileEditForm.tags}
+                          onChange={e => setProfileEditForm(f => ({ ...f, tags: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                          placeholder="e.g. YT Shorts, Reels, Wedding, Portrait"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-dark-700 font-bold text-xs mb-1.5">Service Areas (comma-separated)</label>
+                        <input
+                          type="text"
+                          value={profileEditForm.serviceAreas}
+                          onChange={e => setProfileEditForm(f => ({ ...f, serviceAreas: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                          placeholder="e.g. Bangalore, Hyderabad"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Languages Spoken (comma-separated)</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.languages}
+                            onChange={e => setProfileEditForm(f => ({ ...f, languages: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="e.g. English, Telugu"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Availability Days (comma-separated)</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.workingDays}
+                            onChange={e => setProfileEditForm(f => ({ ...f, workingDays: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="e.g. Sat, Sun, Mon"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-6 flex items-center justify-between gap-3">
+                  {/* KYC & Billing */}
+                  <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
+                    <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
+                      <FileText className="w-5 h-5 text-purple-500" /> Verification (KYC) & Bank Info
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">GST Number</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.gst_number}
+                            onChange={e => setProfileEditForm(f => ({ ...f, gst_number: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="22AAAAA0000A1Z5"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">PAN Number</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.pan_number}
+                            onChange={e => setProfileEditForm(f => ({ ...f, pan_number: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="AAAAA0000A"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
+                            <CreditCard className="w-3.5 h-3.5 text-purple-500" /> Bank Account Number
+                          </label>
+                          <input
+                            type="text"
+                            value={profileEditForm.bank_account}
+                            onChange={e => setProfileEditForm(f => ({ ...f, bank_account: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="Bank Account Number"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Bank IFSC Code</label>
+                          <input
+                            type="text"
+                            value={profileEditForm.ifsc}
+                            onChange={e => setProfileEditForm(f => ({ ...f, ifsc: e.target.value }))}
+                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                            placeholder="IFSC Code"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Social Handles */}
+                  <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
+                    <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
+                      <Globe className="w-5 h-5 text-purple-500" /> Social Links
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
+                          <Instagram className="w-3.5 h-3.5 text-purple-500" /> Instagram Handle
+                        </label>
+                        <input
+                          type="text"
+                          value={profileEditForm.instagram}
+                          onChange={e => setProfileEditForm(f => ({ ...f, instagram: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                          placeholder="e.g. @yourbusiness"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
+                          <Facebook className="w-3.5 h-3.5 text-purple-500" /> Facebook Page Link
+                        </label>
+                        <input
+                          type="text"
+                          value={profileEditForm.facebook}
+                          onChange={e => setProfileEditForm(f => ({ ...f, facebook: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                          placeholder="e.g. https://facebook.com/yourbusiness"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
+                          <Globe className="w-3.5 h-3.5 text-purple-500" /> Website URL
+                        </label>
+                        <input
+                          type="text"
+                          value={profileEditForm.website}
+                          onChange={e => setProfileEditForm(f => ({ ...f, website: e.target.value }))}
+                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
+                          placeholder="e.g. https://yourbusiness.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-4">
                     <button
                       onClick={handleSaveProfile}
                       disabled={savingProfile}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow transition-all text-sm disabled:opacity-50"
+                      className="inline-flex items-center gap-2 px-6 py-3.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-xl hover:shadow-glow transition-all text-sm cursor-pointer"
                     >
-                      {savingProfile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Profile
+                      {savingProfile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Changes
                     </button>
                     <button
-                      onClick={async () => { await signOut(); navigate('/'); }}
-                      className="flex items-center gap-2 px-5 py-2.5 border border-cream-300 text-cream-800 font-bold rounded-xl hover:bg-cream-100 hover:border-cream-400 transition-all text-sm"
+                      onClick={() => setIsEditingProfile(false)}
+                      className="inline-flex items-center gap-2 px-6 py-3.5 border border-cream-300 text-cream-800 font-bold rounded-xl hover:bg-cream-100 transition-all text-sm cursor-pointer"
                     >
-                      <LogOut className="w-4 h-4" /> Sign Out
+                      <X className="w-4 h-4" /> Cancel
                     </button>
                   </div>
                 </div>

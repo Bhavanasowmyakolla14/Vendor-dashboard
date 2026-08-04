@@ -25,6 +25,7 @@ export type Vendor = {
   capacity: string | null;
   experience_years: number | null;
   slug: string;
+  details?: any;
   created_at: string;
 };
 
