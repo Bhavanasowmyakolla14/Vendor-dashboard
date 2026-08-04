@@ -196,9 +196,10 @@ export default function AuthPage() {
       <div className="min-h-screen lg:h-screen w-full relative overflow-hidden bg-cream-50">
         {/* Visual panel (Left in Customer Mode, Right in Vendor Mode) */}
         <div
-          className={`hidden lg:flex lg:w-1/2 absolute top-0 bottom-0 left-0 h-full overflow-hidden mix-swap-panel z-10 ${
-            isVendor ? 'translate-x-full' : 'translate-x-0'
-          }`}
+          className="hidden lg:flex lg:w-[45%] absolute top-0 bottom-0 left-0 h-full overflow-hidden mix-swap-panel z-10"
+          style={{
+            transform: isVendor ? 'translateX(122.22%)' : 'translateX(0%)'
+          }}
         >
           {slides.map((s, i) => (
             <div
@@ -236,18 +237,18 @@ export default function AuthPage() {
             </div>
 
             {/* Slide content with mixed fade & scale transition */}
-            <div key={`${role}-${slideIndex}`} className="animate-fade-up my-auto py-3 mix-swap-panel">
+            <div key={`${role}-${slideIndex}`} className="animate-fade-up my-auto py-3 mix-swap-panel text-center flex flex-col items-center">
               <p className={`text-xs font-bold tracking-widest uppercase mb-2 mix-swap-panel ${isVendor ? 'text-gold-400' : (isAdmin ? 'text-gold-400' : 'text-cream-400')}`}>
                 {slide.tag}
               </p>
-              <h2 className="font-display text-3xl xl:text-4xl font-bold leading-tight mb-3.5 whitespace-pre-line drop-shadow-lg mix-swap-panel">
+              <h2 className="font-display text-3xl xl:text-4xl font-bold leading-tight mb-4 whitespace-pre-line drop-shadow-lg mix-swap-panel">
                 {slide.title}
               </h2>
 
               {/* Feature list */}
-              <div className="space-y-2.5 max-w-sm">
+              <div className="space-y-2.5 max-w-sm mx-auto">
                 {(isVendor ? VENDOR_FEATURES : (isAdmin ? ADMIN_FEATURES : CUSTOMER_FEATURES)).slice(0, 3).map(({ icon: Icon, text }) => (
-                  <div key={text} className="flex items-center gap-2.5">
+                  <div key={text} className="flex items-center gap-2.5 text-left">
                     <div className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center flex-shrink-0 mix-swap-panel ${isVendor ? 'bg-gold-400/15 border border-gold-400/25' : (isAdmin ? 'bg-gold-500/20 border border-gold-500/25' : 'bg-sage-500/20 border border-sage-400/25')}`}>
                       <Icon className={`w-3.5 h-3.5 mix-swap-panel ${isVendor ? 'text-gold-400' : (isAdmin ? 'text-gold-400' : 'text-cream-300')}`} />
                     </div>
@@ -258,8 +259,8 @@ export default function AuthPage() {
             </div>
 
             {/* Bottom bar */}
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-3">
+            <div className="space-y-3 flex flex-col items-center">
+              <div className="flex items-center gap-3 justify-center">
                 <div className="flex -space-x-2">
                   {['1239291', '1516680', '1181686', '1024993'].map(n => (
                     <div key={n} className="w-6.5 h-6.5 rounded-full border border-sage-900 overflow-hidden">
@@ -277,7 +278,7 @@ export default function AuthPage() {
                 </p>
               </div>
 
-              <div className="flex gap-1.5">
+              <div className="flex gap-1.5 justify-center">
                 {slides.map((_, i) => (
                   <button
                     key={i}
@@ -292,9 +293,10 @@ export default function AuthPage() {
 
         {/* Form panel with mixed morphing background and card transition */}
         <div
-          className={`w-full lg:w-1/2 absolute top-0 bottom-0 right-0 h-full flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-cream-50 relative lg:absolute mix-swap-panel z-20 overflow-y-auto ${
-            isVendor ? 'lg:-translate-x-full' : 'lg:translate-x-0'
-          }`}
+          className="w-full lg:w-[55%] absolute top-0 bottom-0 right-0 h-full flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-cream-50 relative lg:absolute mix-swap-panel z-20 overflow-y-auto"
+          style={{
+            transform: isVendor ? 'translateX(-81.82%)' : 'translateX(0%)'
+          }}
         >
           <button
             onClick={() => navigate('/')}
@@ -304,7 +306,7 @@ export default function AuthPage() {
             <span>Home</span>
           </button>
 
-          <div className={`w-full max-w-md my-auto mix-swap-panel ${mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
+          <div className={`w-full max-w-[480px] my-auto mix-swap-panel ${mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}>
             <div className="bg-white rounded-3xl shadow-card p-6 sm:p-7 md:p-8 border border-sage-100 mix-swap-panel">
               {/* Mobile logo */}
               <div className="lg:hidden flex items-center gap-2.5 mb-4 justify-center">
