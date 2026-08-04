@@ -32,6 +32,7 @@ type AuthContextType = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setDemoAdmin: () => void;
+  switchUserRole: (newRole: UserRole) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -108,6 +109,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchProfile(user.id);
   };
 
+  const switchUserRole = async (newRole: UserRole) => {
+    if (profile) {
+      setProfile({ ...profile, role: newRole });
+      if (user && user.id !== 'admin-demo-id') {
+        await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
+      }
+    }
+  };
   const setDemoAdmin = () => {
     const adminUser = { id: 'admin-demo-id', email: 'admin@festivo.com' } as User;
     const adminProfile: Profile = {
@@ -129,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, refreshProfile, setDemoAdmin }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, refreshProfile, setDemoAdmin, switchUserRole }}>
       {children}
     </AuthContext.Provider>
   );

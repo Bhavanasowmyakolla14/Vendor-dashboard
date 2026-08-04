@@ -44,18 +44,14 @@ export default function Services() {
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-white via-white/10 to-transparent" />
-
-                  {/* Count badge */}
-                  <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1 shadow-soft">
-                    <span className="text-sage-800 text-xs font-bold">From {cat.startingPrice}</span>
-                  </div>
                 </div>
 
                 {/* Content */}
                 <div className="p-5">
                   <div className="flex items-start gap-4">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${cat.gradient} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
-                      <cat.icon className="w-6 h-6 text-white" />
+                    <div className="w-13 h-13 rounded-xl overflow-hidden relative shadow-sm border border-sage-200 flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                      <img src={cat.image} alt={cat.label} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-dark-900/20 via-transparent to-transparent pointer-events-none" />
                     </div>
                     <div className="flex-1">
                       <h3 className="font-display font-bold text-sage-900 text-lg mb-1.5 group-hover:text-sage-600 transition-colors duration-200">

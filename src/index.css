@@ -24,6 +24,13 @@
 }
 
 @layer utilities {
+  .mix-swap-panel {
+    transition: transform 2s cubic-bezier(0.65, 0, 0.35, 1),
+                opacity 2s cubic-bezier(0.65, 0, 0.35, 1),
+                background-color 2s cubic-bezier(0.65, 0, 0.35, 1),
+                filter 2s cubic-bezier(0.65, 0, 0.35, 1);
+    will-change: transform, opacity;
+  }
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(135deg, #466b48 0%, #5d8560 100%);

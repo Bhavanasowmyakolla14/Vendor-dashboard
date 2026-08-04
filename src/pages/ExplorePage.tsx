@@ -70,27 +70,31 @@ export default function ExplorePage() {
                   onClick={() => navigate(`/category/${encodeURIComponent(cat.label)}`)}
                   onMouseEnter={() => setHoveredCat(i)}
                   onMouseLeave={() => setHoveredCat(null)}
-                  className={`group relative bg-white rounded-2xl p-5 border-2 transition-all duration-500 text-center overflow-hidden ${
+                  className={`group relative bg-white rounded-2xl border-2 transition-all duration-500 text-center overflow-hidden flex flex-col h-48 sm:h-52 ${
                     hoveredCat === i
                       ? 'border-sage-400 shadow-card-hover scale-105 -translate-y-1'
                       : 'border-sage-100 hover:border-sage-200'
                   } ${categoriesRef.inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
                   style={{ transitionDelay: `${i * 50}ms` }}
                 >
-                  {/* Glossy overlay */}
-                  <div className={`absolute inset-0 transition-opacity duration-500 ${hoveredCat === i ? 'opacity-100' : 'opacity-0'}`}>
-                    <div className="absolute inset-0 bg-gradient-to-br from-sage-50 via-transparent to-gold-50/30" />
-                    <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent" />
+                  {/* Top 3/4 Image Section */}
+                  <div className="relative h-[72%] w-full overflow-hidden flex-shrink-0">
+                    <img
+                      src={cat.image}
+                      alt={cat.label}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-dark-900/60 via-dark-900/10 to-transparent" />
                   </div>
 
-                  <div className="relative">
-                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${cat.gradient} flex items-center justify-center mb-3 mx-auto transition-transform duration-300 ${hoveredCat === i ? 'scale-110 rotate-3' : ''}`}>
-                      <cat.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <p className="font-bold text-sage-900 text-sm mb-1">{cat.label}</p>
-                    <p className="text-dark-400 text-xs">{cat.startingPrice}</p>
-                    <div className={`flex items-center justify-center gap-1 mt-2 text-sage-600 text-xs font-bold transition-all ${hoveredCat === i ? 'opacity-100' : 'opacity-0'}`}>
-                      Explore <ChevronRight className="w-3 h-3" />
+                  {/* Bottom 1/4 Label & Action */}
+                  <div className="h-[28%] w-full p-2.5 flex items-center justify-between px-3 bg-white border-t border-sage-50">
+                    <p className="font-display font-bold text-sage-900 text-xs sm:text-sm truncate">{cat.label}</p>
+                    <div className="w-5.5 h-5.5 rounded-lg bg-sage-50 group-hover:bg-sage-600 flex items-center justify-center transition-colors flex-shrink-0">
+                      <ChevronRight className="w-3.5 h-3.5 text-sage-600 group-hover:text-white transition-colors" />
                     </div>
                   </div>
                 </button>
