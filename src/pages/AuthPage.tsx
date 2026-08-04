@@ -36,6 +36,17 @@ const customerSlides = [
   { image: 'https://images.pexels.com/photos/169198/pexels-photo-169198.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1600&dpr=1', tag: 'Celebrate', title: 'Every Moment\nMatters' },
 ];
 
+const adminSlides = [
+  { image: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1600&dpr=1', tag: 'For Administrators', title: 'Platform\nOversight' },
+  { image: 'https://images.pexels.com/photos/3184306/pexels-photo-3184306.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1600&dpr=1', tag: 'Analytics', title: 'Performance\n& Growth' }
+];
+
+const ADMIN_FEATURES = [
+  { icon: Shield, text: 'Review and approve pending vendor submissions' },
+  { icon: Sparkles, text: 'Verify event categories and listings' },
+  { icon: TrendingUp, text: 'Analyze platform bookings and commission revenues' },
+];
+
 /* ── Main Component ─────────────────────────────────────────────── */
 
 export default function AuthPage() {
@@ -43,8 +54,11 @@ export default function AuthPage() {
   const { signIn, signUp, user, profile, setDemoAdmin } = useAuth();
 
   const [searchParams] = useSearchParams();
-  const initialRole = (searchParams.get('role') as UserRole) || 'customer';
-  const [role, setRole] = useState<UserRole | null>(initialRole);
+  const getInitialRole = (): UserRole | null => {
+    if (searchParams.get('admin') === 'true') return null;
+    return (searchParams.get('role') as UserRole) || 'customer';
+  };
+  const [role, setRole] = useState<UserRole | null>(getInitialRole());
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -83,7 +97,7 @@ export default function AuthPage() {
     setOtpNotice('✓ Verification code sent! Use mock OTP: 123456');
   };
 
-  const slides = role === 'vendor' ? vendorSlides : customerSlides;
+  const slides = role === 'vendor' ? vendorSlides : (role === 'admin' ? adminSlides : customerSlides);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -167,6 +181,7 @@ export default function AuthPage() {
 
   const slide = slides[slideIndex] ?? slides[0];
   const isVendor = role === 'vendor';
+  const isAdmin = role === 'admin';
 
   /* ── Render ───────────────────────────────────────────────────── */
 
@@ -196,8 +211,8 @@ export default function AuthPage() {
           ))}
 
           {/* Mixed multi-layer blend overlays */}
-          <div className={`absolute inset-0 mix-swap-panel ${isVendor ? 'bg-sage-950/90 mix-blend-multiply' : 'bg-sage-900/80 mix-blend-multiply'}`} />
-          <div className={`absolute inset-0 mix-swap-panel backdrop-blur-[2px] ${isVendor ? 'bg-gradient-to-br from-sage-950/90 via-sage-900/60 to-gold-950/70' : 'bg-gradient-to-br from-sage-900/85 via-sage-800/40 to-sage-900/75'}`} />
+          <div className={`absolute inset-0 mix-swap-panel ${isVendor ? 'bg-sage-950/90 mix-blend-multiply' : (isAdmin ? 'bg-slate-950/95 mix-blend-multiply' : 'bg-sage-900/80 mix-blend-multiply')}`} />
+          <div className={`absolute inset-0 mix-swap-panel backdrop-blur-[2px] ${isVendor ? 'bg-gradient-to-br from-sage-950/90 via-sage-900/60 to-gold-950/70' : (isAdmin ? 'bg-gradient-to-br from-slate-950/95 via-sage-900/40 to-slate-950/95' : 'bg-gradient-to-br from-sage-900/85 via-sage-800/40 to-sage-900/75')}`} />
           <div className="absolute inset-0 bg-gradient-to-t from-sage-950/70 via-transparent to-transparent" />
 
           <div className="orb w-96 h-96 bg-sage-600/20 -top-20 -left-20" />
@@ -214,15 +229,15 @@ export default function AuthPage() {
               </button>
 
               {/* Role badge */}
-              <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl mix-swap-panel ${isVendor ? 'bg-sage-800/60 border border-gold-400/30' : 'bg-sage-700/40 border border-white/20'} backdrop-blur-sm`}>
-                {isVendor ? <Store className="w-4 h-4 text-gold-400 animate-pulse" /> : <Users className="w-4 h-4 text-cream-400" />}
-                <span className="text-xs font-bold">{isVendor ? 'Vendor Portal' : 'Customer Portal'}</span>
+              <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl mix-swap-panel ${isVendor ? 'bg-sage-800/60 border border-gold-400/30' : (isAdmin ? 'bg-slate-800/60 border border-gold-400/30' : 'bg-sage-700/40 border border-white/20')} backdrop-blur-sm`}>
+                {isVendor ? <Store className="w-4 h-4 text-gold-400 animate-pulse" /> : (isAdmin ? <Shield className="w-4 h-4 text-gold-400 animate-pulse" /> : <Users className="w-4 h-4 text-cream-400" />)}
+                <span className="text-xs font-bold">{isVendor ? 'Vendor Portal' : (isAdmin ? 'Admin Portal' : 'Customer Portal')}</span>
               </div>
             </div>
 
             {/* Slide content with mixed fade & scale transition */}
             <div key={`${role}-${slideIndex}`} className="animate-fade-up my-auto py-3 mix-swap-panel">
-              <p className={`text-xs font-bold tracking-widest uppercase mb-2 mix-swap-panel ${isVendor ? 'text-gold-400' : 'text-cream-400'}`}>
+              <p className={`text-xs font-bold tracking-widest uppercase mb-2 mix-swap-panel ${isVendor ? 'text-gold-400' : (isAdmin ? 'text-gold-400' : 'text-cream-400')}`}>
                 {slide.tag}
               </p>
               <h2 className="font-display text-3xl xl:text-4xl font-bold leading-tight mb-3.5 whitespace-pre-line drop-shadow-lg mix-swap-panel">
@@ -231,10 +246,10 @@ export default function AuthPage() {
 
               {/* Feature list */}
               <div className="space-y-2.5 max-w-sm">
-                {(isVendor ? VENDOR_FEATURES : CUSTOMER_FEATURES).slice(0, 3).map(({ icon: Icon, text }) => (
+                {(isVendor ? VENDOR_FEATURES : (isAdmin ? ADMIN_FEATURES : CUSTOMER_FEATURES)).slice(0, 3).map(({ icon: Icon, text }) => (
                   <div key={text} className="flex items-center gap-2.5">
-                    <div className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center flex-shrink-0 mix-swap-panel ${isVendor ? 'bg-gold-400/15 border border-gold-400/25' : 'bg-sage-500/20 border border-sage-400/25'}`}>
-                      <Icon className={`w-3.5 h-3.5 mix-swap-panel ${isVendor ? 'text-gold-400' : 'text-cream-300'}`} />
+                    <div className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center flex-shrink-0 mix-swap-panel ${isVendor ? 'bg-gold-400/15 border border-gold-400/25' : (isAdmin ? 'bg-gold-500/20 border border-gold-500/25' : 'bg-sage-500/20 border border-sage-400/25')}`}>
+                      <Icon className={`w-3.5 h-3.5 mix-swap-panel ${isVendor ? 'text-gold-400' : (isAdmin ? 'text-gold-400' : 'text-cream-300')}`} />
                     </div>
                     <span className="text-sage-100 text-xs xl:text-sm font-medium">{text}</span>
                   </div>
@@ -258,7 +273,7 @@ export default function AuthPage() {
                   ))}
                 </div>
                 <p className="text-sage-200 text-xs font-medium mix-swap-panel">
-                  {isVendor ? 'Join 2,500+ vendors' : 'Join 50,000+ happy customers'}
+                  {isVendor ? 'Join 2,500+ vendors' : (isAdmin ? 'Secure Administration Portal' : 'Join 50,000+ happy customers')}
                 </p>
               </div>
 
@@ -300,23 +315,23 @@ export default function AuthPage() {
               </div>
 
               {/* Role indicator with mixed blend */}
-              <div className={`flex items-center justify-between p-2.5 rounded-xl mb-3.5 mix-swap-panel ${isVendor ? 'bg-sage-900 shadow-md' : 'bg-sage-50'}`}>
+              <div className={`flex items-center justify-between p-2.5 rounded-xl mb-3.5 mix-swap-panel ${isVendor ? 'bg-sage-900 shadow-md' : (isAdmin ? 'bg-sage-950 border border-gold-400/20 shadow-md' : 'bg-sage-50')}`}>
                 <div className="flex items-center gap-2.5">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center mix-swap-panel ${isVendor ? 'bg-sage-700' : 'bg-sage-100'}`}>
-                    {isVendor ? <Store className="w-4 h-4 text-gold-400" /> : <Users className="w-4 h-4 text-sage-600" />}
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center mix-swap-panel ${isVendor ? 'bg-sage-700' : (isAdmin ? 'bg-gold-500/20' : 'bg-sage-100')}`}>
+                    {isVendor ? <Store className="w-4 h-4 text-gold-400" /> : (isAdmin ? <Shield className="w-4 h-4 text-gold-400" /> : <Users className="w-4 h-4 text-sage-600" />)}
                   </div>
                   <div>
-                    <p className={`font-bold text-xs sm:text-sm mix-swap-panel ${isVendor ? 'text-white' : 'text-sage-900'}`}>
-                      {isVendor ? 'Vendor Account' : 'Customer Account'}
+                    <p className={`font-bold text-xs sm:text-sm mix-swap-panel ${isVendor ? 'text-white' : (isAdmin ? 'text-white' : 'text-sage-900')}`}>
+                      {isVendor ? 'Vendor Account' : (isAdmin ? 'Admin Account' : 'Customer Account')}
                     </p>
-                    <p className={`text-[11px] mix-swap-panel ${isVendor ? 'text-sage-300' : 'text-sage-600'}`}>
-                      {isVendor ? 'You offer event services' : 'You plan & book events'}
+                    <p className={`text-[11px] mix-swap-panel ${isVendor ? 'text-sage-300' : (isAdmin ? 'text-gold-400/80' : 'text-sage-600')}`}>
+                      {isVendor ? 'You offer event services' : (isAdmin ? 'Platform Oversight Portal' : 'You plan & book events')}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={resetRole}
-                  className={`text-xs font-bold px-2.5 py-1 rounded-lg mix-swap-panel ${isVendor ? 'bg-sage-700 text-sage-200 hover:bg-sage-600' : 'bg-white text-sage-600 border border-sage-200 hover:border-sage-400'}`}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg mix-swap-panel ${isVendor ? 'bg-sage-700 text-sage-200 hover:bg-sage-600' : (isAdmin ? 'bg-sage-800 text-gold-400 border border-gold-400/30 hover:bg-sage-700' : 'bg-white text-sage-600 border border-sage-200 hover:border-sage-400')}`}
                 >
                   Switch
                 </button>
@@ -325,33 +340,35 @@ export default function AuthPage() {
               {/* Heading */}
               <h1 className="font-display text-2xl sm:text-3xl font-bold text-sage-900 mb-1">
                 {mode === 'signin'
-                  ? isVendor ? 'Vendor Sign In' : 'Welcome Back!'
+                  ? isVendor ? 'Vendor Sign In' : (isAdmin ? 'Sign In to Dashboard' : 'Welcome Back!')
                   : isVendor ? 'Create Vendor Account' : 'Create Your Account'}
               </h1>
               <p className="text-dark-500 text-xs sm:text-sm mb-3.5">
                 {mode === 'signin'
                   ? isVendor
                     ? 'Sign in to manage your bookings and listings.'
-                    : 'Sign in to access your bookings and events.'
+                    : (isAdmin ? 'Sign in to access administration controls.' : 'Sign in to access your bookings and events.')
                   : isVendor
                     ? 'Join Festivo as a vendor and grow your business.'
                     : 'Join Festivo and start planning your perfect event.'}
               </p>
 
               {/* Sign In / Sign Up toggle */}
-              <div className="flex gap-1.5 p-1 bg-sage-50 rounded-xl mb-3.5">
-                {(['signin', 'signup'] as const).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => switchMode(m)}
-                    className={`flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 ${
-                      mode === m ? 'bg-white text-sage-600 shadow-sm' : 'text-dark-500 hover:text-sage-700'
-                    }`}
-                  >
-                    {m === 'signin' ? 'Sign In' : 'Sign Up'}
-                  </button>
-                ))}
-              </div>
+              {!isAdmin && (
+                <div className="flex gap-1.5 p-1 bg-sage-50 rounded-xl mb-3.5">
+                  {(['signin', 'signup'] as const).map(m => (
+                    <button
+                      key={m}
+                      onClick={() => switchMode(m)}
+                      className={`flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 ${
+                        mode === m ? 'bg-white text-sage-600 shadow-sm' : 'text-dark-500 hover:text-sage-700'
+                      }`}
+                    >
+                      {m === 'signin' ? 'Sign In' : 'Sign Up'}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-3">
@@ -536,23 +553,25 @@ export default function AuthPage() {
               </form>
 
               {/* Quick role switch hint */}
-              <div className="mt-3.5 p-2.5 bg-sage-50 rounded-xl border border-sage-100 text-center">
-                <p className="text-dark-500 text-xs font-medium">
-                  {isVendor ? (
-                    <>Are you here to plan an event?{' '}
-                      <button onClick={() => setRole('customer')} className="text-sage-700 font-bold hover:underline">
-                        Switch to Customer
-                      </button>
-                    </>
-                  ) : (
-                    <>Are you an event service provider?{' '}
-                      <button onClick={() => setRole('vendor')} className="text-sage-700 font-bold hover:underline">
-                        Switch to Vendor
-                      </button>
-                    </>
-                  )}
-                </p>
-              </div>
+              {!isAdmin && (
+                <div className="mt-3.5 p-2.5 bg-sage-50 rounded-xl border border-sage-100 text-center">
+                  <p className="text-dark-500 text-xs font-medium">
+                    {isVendor ? (
+                      <>Are you here to plan an event?{' '}
+                        <button onClick={() => setRole('customer')} className="text-sage-700 font-bold hover:underline">
+                          Switch to Customer
+                        </button>
+                      </>
+                    ) : (
+                      <>Are you an event service provider?{' '}
+                        <button onClick={() => setRole('vendor')} className="text-sage-700 font-bold hover:underline">
+                          Switch to Vendor
+                        </button>
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
 
               <p className="text-center text-dark-500 text-[11px] mt-3 font-medium">
                 By continuing, you agree to Festivo's{' '}
