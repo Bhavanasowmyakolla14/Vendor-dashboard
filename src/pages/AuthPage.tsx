@@ -238,21 +238,21 @@ export default function AuthPage() {
 
             {/* Slide content with mixed fade & scale transition */}
             <div key={`${role}-${slideIndex}`} className="animate-fade-up my-auto py-3 mix-swap-panel text-center flex flex-col items-center">
-              <p className={`text-xs font-bold tracking-widest uppercase mb-2 mix-swap-panel ${isVendor ? 'text-gold-400' : (isAdmin ? 'text-gold-400' : 'text-cream-400')}`}>
+              <p className={`text-sm sm:text-base font-bold tracking-widest uppercase mb-3.5 mix-swap-panel ${isVendor ? 'text-gold-400' : (isAdmin ? 'text-gold-400' : 'text-cream-400')}`}>
                 {slide.tag}
               </p>
-              <h2 className="font-display text-3xl xl:text-4xl font-bold leading-tight mb-4 whitespace-pre-line drop-shadow-lg mix-swap-panel">
+              <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6 whitespace-pre-line drop-shadow-lg mix-swap-panel">
                 {slide.title}
               </h2>
 
               {/* Feature list */}
-              <div className="space-y-2.5 max-w-sm mx-auto">
+              <div className="space-y-4 max-w-md mx-auto">
                 {(isVendor ? VENDOR_FEATURES : (isAdmin ? ADMIN_FEATURES : CUSTOMER_FEATURES)).slice(0, 3).map(({ icon: Icon, text }) => (
-                  <div key={text} className="flex items-center gap-2.5 text-left">
-                    <div className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center flex-shrink-0 mix-swap-panel ${isVendor ? 'bg-gold-400/15 border border-gold-400/25' : (isAdmin ? 'bg-gold-500/20 border border-gold-500/25' : 'bg-sage-500/20 border border-sage-400/25')}`}>
-                      <Icon className={`w-3.5 h-3.5 mix-swap-panel ${isVendor ? 'text-gold-400' : (isAdmin ? 'text-gold-400' : 'text-cream-300')}`} />
+                  <div key={text} className="flex items-center gap-3.5 text-left">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mix-swap-panel ${isVendor ? 'bg-gold-400/15 border border-gold-400/25' : (isAdmin ? 'bg-gold-500/20 border border-gold-500/25' : 'bg-sage-500/20 border border-sage-400/25')}`}>
+                      <Icon className={`w-5 h-5 mix-swap-panel ${isVendor ? 'text-gold-400' : (isAdmin ? 'text-gold-400' : 'text-cream-300')}`} />
                     </div>
-                    <span className="text-sage-100 text-xs xl:text-sm font-medium">{text}</span>
+                    <span className="text-sage-100 text-sm sm:text-base lg:text-lg font-semibold leading-snug">{text}</span>
                   </div>
                 ))}
               </div>
@@ -273,7 +273,7 @@ export default function AuthPage() {
                     </div>
                   ))}
                 </div>
-                <p className="text-sage-200 text-xs font-medium mix-swap-panel">
+                <p className="text-sage-200 text-sm font-semibold mix-swap-panel">
                   {isVendor ? 'Join 2,500+ vendors' : (isAdmin ? 'Secure Administration Portal' : 'Join 50,000+ happy customers')}
                 </p>
               </div>
