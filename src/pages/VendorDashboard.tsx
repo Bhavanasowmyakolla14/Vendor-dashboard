@@ -1370,7 +1370,7 @@ export default function VendorDashboard() {
                 /* PUBLIC PROFILE PREVIEW MODE */
                 <div className="space-y-6 animate-fade-in">
                   {/* Hex/Mesh Gradient Banner */}
-                  <div className="bg-gradient-to-br from-sage-950 via-slate-900 to-black text-white rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-card border border-white/5">
+                  <div className="bg-gradient-to-r from-sage-900 to-sage-800 text-white rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-card border border-white/5">
                     {/* Background hexagons grid pattern and mesh glow */}
                     <div 
                       className="absolute inset-0 opacity-15 pointer-events-none"
