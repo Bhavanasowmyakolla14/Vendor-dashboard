@@ -6,7 +6,6 @@ import {
   Globe, Shield, Phone, Landmark, FileText, Check,
   Instagram, Facebook, Youtube, Linkedin, Twitter
 } from 'lucide-react';
-import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { supabase } from '../lib/supabase';
 
@@ -252,7 +251,7 @@ export default function VendorRegistrationPage() {
     }
 
     setSubmitting(false);
-    setSubmitted(true);
+    navigate('/vendor-dashboard');
   };
 
   const stepsList = [
@@ -271,19 +270,18 @@ export default function VendorRegistrationPage() {
 
   return (
     <>
-      <Navbar />
-      <div className="min-h-screen bg-cream-50/50 pt-24 pb-16">
+      <div className="min-h-screen bg-cream-50/50 pt-0 pb-16">
         {/* Banner */}
         <div className="bg-gradient-to-br from-sage-900 via-sage-800 to-dark-900 py-10 relative overflow-hidden">
           <div className="orb w-96 h-96 bg-gold-500/10 -top-20 -right-20" />
-          <div className="relative max-w-5xl mx-auto px-4 text-center">
+          <div className="relative max-w-5xl mx-auto px-4 text-center flex flex-col items-center gap-3">
             <button
-              onClick={() => navigate('/auth')}
-              className="inline-flex items-center gap-2 text-sage-300 hover:text-white transition-colors mb-3 group text-sm font-bold animate-fade-in"
+              onClick={() => navigate('/vendor-dashboard')}
+              className="inline-flex items-center gap-2 text-sage-300 hover:text-white transition-colors group text-sm font-bold animate-fade-in"
             >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to Login
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to Dashboard
             </button>
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-1 text-gold-300 text-xs font-bold mb-3 shadow-sm">
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-1 text-gold-300 text-xs font-bold shadow-sm">
               <Store className="w-3.5 h-3.5" /> Enrolled Business Partner
             </div>
             <h1 className="font-display text-3xl md:text-4xl font-bold text-white mb-2 leading-tight">

@@ -96,6 +96,42 @@ export default function AdminDashboard() {
       console.warn('Supabase update notice:', e);
     }
 
+    // Send notification to the vendor
+    try {
+      // 1. Create a local notification for display
+      const newNotification = {
+        id: crypto.randomUUID(),
+        vendor_id: vendor.id,
+        vendor_name: vendor.name,
+        title: 'Listing Approved! 🎉',
+        message: `Congratulations! Your vendor listing for "${vendor.name}" has been approved and published.`,
+        type: 'success',
+        created_at: new Date().toISOString(),
+        read: false,
+      };
+      const notifications = JSON.parse(localStorage.getItem('festivo_notifications') || '[]');
+      localStorage.setItem('festivo_notifications', JSON.stringify([...notifications, newNotification]));
+
+      // 2. Query vendor_profiles to find corresponding user_id and save to db
+      const { data: profileData } = await supabase
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('business_name', vendor.name)
+        .maybeSingle();
+
+      if (profileData?.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: profileData.user_id,
+          title: 'Listing Approved! 🎉',
+          message: `Congratulations! Your vendor listing for "${vendor.name}" has been approved and published.`,
+          type: 'system',
+          is_read: false,
+        });
+      }
+    } catch (err) {
+      console.warn('Error sending approval notification:', err);
+    }
+
     setActionNotice(`✓ "${vendor.name}" has been approved and officially published under ${vendor.category}!`);
     setTimeout(() => setActionNotice(null), 4000);
   };

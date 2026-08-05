@@ -119,13 +119,40 @@ export default function VendorsPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    supabase.from('vendors').select('*').then(({ data }) => {
-      const localApproved: Vendor[] = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
-      const merged = [...(data ?? []), ...localApproved];
-      const unique = Array.from(new Map(merged.map(v => [v.slug || v.name, v])).values());
-      setVendors(sanitizeVendors(unique));
-      setLoading(false);
-    });
+    const fetchVendorsData = async () => {
+      try {
+        const { data: dbVendors } = await supabase.from('vendors').select('*');
+        const { data: dbProfiles } = await supabase.from('vendor_profiles').select('*');
+        const { data: dbServices } = await supabase.from('vendor_services').select('*');
+        
+        const localApproved: Vendor[] = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
+        const merged = [...(dbVendors ?? []), ...localApproved];
+        const unique = Array.from(new Map(merged.map(v => [v.slug || v.name, v])).values());
+        
+        const activeVendors = unique.filter(vendor => {
+          // 1. Admin accepted/verified
+          const isAdminAccepted = vendor.verified === true;
+          
+          // 2. Updated profile (has a vendor profile matching business name or vendor ID, or has updated details)
+          const hasProfile = dbProfiles?.some(p => p.business_name === vendor.name || p.user_id === vendor.id) || 
+                            (vendor.details && (vendor.details.gst_number || vendor.details.bank_account || vendor.details.instagram || vendor.details.website));
+          
+          // 3. Added packages (has packages in vendor_services)
+          const hasPackages = dbServices?.some(s => s.vendor_id === vendor.id);
+          
+          return isAdminAccepted && hasProfile && hasPackages;
+        });
+
+        setVendors(sanitizeVendors(activeVendors));
+      } catch (err) {
+        console.error('Error fetching vendors:', err);
+        setVendors([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVendorsData();
   }, []);
 
   const filtered = useMemo(() => {
@@ -150,7 +177,9 @@ export default function VendorsPage() {
           <div className="orb w-96 h-96 bg-sage-500 -bottom-20 -right-20 opacity-20" />
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h1 className="font-display text-4xl md:text-5xl font-bold text-white mb-4 animate-hero-text">Find Your <span className="text-gradient">Perfect Vendor</span></h1>
-            <p className="text-dark-300 text-lg max-w-2xl mx-auto mb-8">2,500+ verified vendors across India, ready to make your event extraordinary.</p>
+            <p className="text-dark-300 text-lg max-w-2xl mx-auto mb-8">
+              {loading ? '...' : vendors.length} verified vendors across India, ready to make your event extraordinary.
+            </p>
             <div className="max-w-2xl mx-auto relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
               <input

@@ -51,7 +51,7 @@ const ADMIN_FEATURES = [
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { signIn, signUp, user, profile, setDemoAdmin } = useAuth();
+  const { signIn, signUp, signOut, user, profile, setDemoAdmin } = useAuth();
 
   const [searchParams] = useSearchParams();
   const getInitialRole = (): UserRole | null => {
@@ -108,11 +108,17 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
+      // If the logged-in user's role does not match the role selected on the AuthPage,
+      // sign them out first so they can log in/register for the new role.
+      if (profile && role && profile.role !== role) {
+        signOut();
+        return;
+      }
       if (profile?.role === 'admin' || role === 'admin') navigate('/admin');
       else if (profile?.role === 'vendor' || role === 'vendor') navigate('/vendor-dashboard');
       else navigate('/vendors');
     }
-  }, [user, profile, navigate, role]);
+  }, [user, profile, navigate, role, signOut]);
 
   /* ── Handlers ─────────────────────────────────────────────────── */
 
@@ -146,6 +152,14 @@ export default function AuthPage() {
     } else {
       if (!role) { setLoading(false); return; }
       const { error } = await signUp(email, password, name, role);
+      if (error && (error.toLowerCase().includes('already registered') || error.toLowerCase().includes('already exists'))) {
+        const { error: loginError } = await signIn(email, password);
+        if (!loginError) {
+          setLoading(false);
+          navigate(role === 'vendor' ? '/vendor-dashboard' : '/vendors');
+          return;
+        }
+      }
       setLoading(false);
       if (error) { setError(error); return; }
       navigate(role === 'vendor' ? '/vendor-dashboard' : '/vendors');

@@ -35,19 +35,42 @@ export default function CategoryDetailPage() {
   useEffect(() => {
     if (!cat) { navigate('/explore'); return; }
     const categoriesToQuery = DB_CATEGORY_MAP[cat.label] || [cat.label];
-    supabase
-      .from('vendors')
-      .select('*')
-      .in('category', categoriesToQuery)
-      .order('rating', { ascending: false })
-      .then(({ data }) => {
+    
+    const fetchCategoryVendors = async () => {
+      try {
+        const { data: dbVendors } = await supabase.from('vendors').select('*').in('category', categoriesToQuery);
+        const { data: dbProfiles } = await supabase.from('vendor_profiles').select('*');
+        const { data: dbServices } = await supabase.from('vendor_services').select('*');
+
         const localApproved: Vendor[] = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
         const catLocal = localApproved.filter(v => categoriesToQuery.includes(v.category) || v.category === cat.label);
-        const merged = [...(data ?? []), ...catLocal];
+        const merged = [...(dbVendors ?? []), ...catLocal];
         const unique = Array.from(new Map(merged.map(v => [v.slug || v.name, v])).values());
-        setVendors(sanitizeVendors(unique));
+
+        const activeVendors = unique.filter(vendor => {
+          // 1. Admin accepted/verified
+          const isAdminAccepted = vendor.verified === true;
+          
+          // 2. Updated profile
+          const hasProfile = dbProfiles?.some(p => p.business_name === vendor.name || p.user_id === vendor.id) || 
+                            (vendor.details && (vendor.details.gst_number || vendor.details.bank_account || vendor.details.instagram || vendor.details.website));
+          
+          // 3. Added packages
+          const hasPackages = dbServices?.some(s => s.vendor_id === vendor.id);
+          
+          return isAdminAccepted && hasProfile && hasPackages;
+        });
+
+        setVendors(sanitizeVendors(activeVendors));
+      } catch (err) {
+        console.error('Error fetching category vendors:', err);
+        setVendors([]);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchCategoryVendors();
   }, [cat, navigate]);
 
   if (!cat) return null;

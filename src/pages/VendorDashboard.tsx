@@ -5,12 +5,11 @@ import {
   CheckCircle2, Clock, XCircle, ArrowRight, LogOut, Sparkles,
   BarChart3, Bell, Eye, Wallet, PieChart, Smile, RefreshCw, X, Check,
   Package, MessageSquare, Send, Trash2, Save, Instagram, Facebook, Globe,
-  FileText, CreditCard, MapPin, ArrowLeft
+  FileText, CreditCard, MapPin, ArrowLeft, DollarSign, Shield
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { supabase, sanitizeVendors } from '../lib/supabase';
 import type { Booking, Vendor } from '../lib/supabase';
-import Navbar from '../components/Navbar';
 import { useInView } from '../hooks/useInView';
 import { getCategory } from '../lib/categories';
 
@@ -137,6 +136,105 @@ export default function VendorDashboard() {
   const [actionMsg, setActionMsg] = useState<{ id: string; text: string; type: 'success' | 'error' } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // Notification state
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Custom Dashboard Overview State
+  const [revFilter, setRevFilter] = useState<'week' | 'month' | 'year'>('month');
+  const [bookingRequests, setBookingRequests] = useState([
+    { id: 1, customer: 'Rahul', event: 'Wedding', budget: '₹75,000', date: 'Aug 10', status: 'Pending' },
+    { id: 2, customer: 'Sneha', event: 'Birthday', budget: '₹25,000', date: 'Aug 12', status: 'Accepted' },
+    { id: 3, customer: 'Vikram', event: 'Pre-Wedding', budget: '₹40,000', date: 'Aug 15', status: 'Pending' }
+  ]);
+  const [replyIndex, setReplyIndex] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [reviewsList, setReviewsList] = useState([
+    { id: 1, author: 'Rahul', rating: 5, comment: 'Excellent work, captured our moments perfectly!', event: 'Wedding', reply: '' },
+    { id: 2, author: 'Sneha', rating: 5, comment: 'Very professional. Highly recommended!', event: 'Birthday', reply: '' },
+    { id: 3, author: 'Anjali', rating: 4.8, comment: 'Loved the candid shots. Great service.', event: 'Pre-Wedding', reply: '' },
+    { id: 4, author: 'Karan', rating: 5, comment: 'Brilliant lighting and creative direction.', event: 'Corporate', reply: '' },
+    { id: 5, author: 'Pooja', rating: 5, comment: 'Absolutely stunning album. Thank you!', event: 'Reception', reply: '' }
+  ]);
+  const [blockedDates, setBlockedDates] = useState<string[]>(['2026-08-10', '2026-08-12']);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchNotifications = async () => {
+      let dbNotifs: any[] = [];
+      try {
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (data) dbNotifs = data;
+      } catch (err) {
+        console.warn('Supabase notifications fetch error:', err);
+      }
+
+      // Load local notifications
+      const localNotifs = JSON.parse(localStorage.getItem('festivo_notifications') || '[]');
+      const vendorNotifs = localNotifs.filter((n: any) => 
+        (primaryVendor && n.vendor_id === primaryVendor.id) || 
+        (primaryVendor && n.vendor_name === primaryVendor.name)
+      );
+
+      // Merge and sort
+      const merged = [...dbNotifs, ...vendorNotifs];
+      // Unique by ID
+      const unique = Array.from(new Map(merged.map(n => [n.id, n])).values());
+      // Sort by created_at desc
+      unique.sort((a: any, b: any) => new Date(b.created_at || b.timestamp).getTime() - new Date(a.created_at || a.timestamp).getTime());
+      
+      setNotifications(unique);
+      setUnreadCount(unique.filter((n: any) => !n.is_read && !n.read).length);
+    };
+
+    fetchNotifications();
+  }, [user, primaryVendor, activeTab]);
+
+  const markAsRead = async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true, read: true } : n));
+    setUnreadCount(c => Math.max(0, c - 1));
+
+    try {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    } catch (err) {
+      console.warn('Supabase mark read error:', err);
+    }
+
+    try {
+      const localNotifs = JSON.parse(localStorage.getItem('festivo_notifications') || '[]');
+      const updated = localNotifs.map((n: any) => n.id === id ? { ...n, read: true } : n);
+      localStorage.setItem('festivo_notifications', JSON.stringify(updated));
+    } catch (err) {
+      console.warn('LocalStorage mark read error:', err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true, read: true })));
+    setUnreadCount(0);
+
+    try {
+      if (user) {
+        await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id);
+      }
+    } catch (err) {
+      console.warn('Supabase mark all read error:', err);
+    }
+
+    try {
+      const localNotifs = JSON.parse(localStorage.getItem('festivo_notifications') || '[]');
+      const updated = localNotifs.map((n: any) => ({ ...n, read: true }));
+      localStorage.setItem('festivo_notifications', JSON.stringify(updated));
+    } catch (err) {
+      console.warn('LocalStorage mark all read error:', err);
+    }
+  };
+
   // Services tab state
   const [services, setServices] = useState<VendorService[]>([]);
   const [showServiceForm, setShowServiceForm] = useState(false);
@@ -177,7 +275,6 @@ export default function VendorDashboard() {
     website: ''
   });
 
-  const statsView = useInView<HTMLDivElement>();
   const listingsView = useInView<HTMLDivElement>();
 
   useEffect(() => {
@@ -186,39 +283,56 @@ export default function VendorDashboard() {
   }, [user, profile, navigate]);
 
   useEffect(() => {
+    if (!loading && !primaryVendor) {
+      navigate('/vendor-registration');
+    }
+  }, [loading, primaryVendor, navigate]);
+
+  useEffect(() => {
     if (!user) return;
 
     const fetchData = async () => {
        const { data: vendorData } = await supabase
         .from('vendors')
         .select('*')
-        .limit(10);
+        .limit(30);
  
        const localApproved: Vendor[] = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
        const localPending: Vendor[] = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
        const merged = [...(vendorData ?? []), ...localApproved, ...localPending];
        const unique = Array.from(new Map(merged.map(v => [v.slug || v.name, v])).values());
        const vendorList = sanitizeVendors(unique);
-       setVendors(vendorList);
+       
+       // Filter by logged-in user's email
+       const userVendorList = vendorList.filter(v => 
+         v.details?.email?.toLowerCase() === user.email?.toLowerCase()
+       );
+       
+       setVendors(userVendorList);
 
-      if (vendorList.length > 0) {
-        const ids = vendorList.map(v => v.id);
-        const { data: bookingData } = await supabase
-          .from('bookings')
-          .select('*')
-          .in('vendor_id', ids)
-          .order('created_at', { ascending: false })
-          .limit(20);
+       if (userVendorList.length > 0) {
+         const ids = userVendorList.map(v => v.id);
+         const { data: bookingData } = await supabase
+           .from('bookings')
+           .select('*')
+           .in('vendor_id', ids)
+           .order('created_at', { ascending: false })
+           .limit(20);
 
-        if (bookingData) {
-          setBookings(bookingData.map(b => ({
-            ...b,
-            vendor_name: vendorList.find(v => v.id === b.vendor_id)?.name,
-          })));
-        }
-      }
+         if (bookingData) {
+           setBookings(bookingData.map(b => ({
+             ...b,
+             vendor_name: userVendorList.find(v => v.id === b.vendor_id)?.name,
+           })));
+         }
+       } else {
+         setBookings([]);
+         setBookingRequests([]);
+         setReviewsList([]);
+         setBlockedDates([]);
+       }
 
-      setLoading(false);
+       setLoading(false);
     };
 
     fetchData();
@@ -226,26 +340,26 @@ export default function VendorDashboard() {
 
   // Fetch services when tab opens
   useEffect(() => {
-    if (activeTab !== 'services' || vendors.length === 0) return;
+    if (activeTab !== 'services' || !primaryVendor) return;
     const fetchServices = async () => {
       const { data } = await supabase
         .from('vendor_services')
         .select('*')
-        .eq('vendor_id', vendors[0].id);
+        .eq('vendor_id', primaryVendor.id);
       if (data) setServices(data as VendorService[]);
     };
     fetchServices();
-  }, [activeTab, vendors]);
+  }, [activeTab, primaryVendor]);
 
   // Fetch availability when tab opens
   useEffect(() => {
-    if (activeTab !== 'availability' || vendors.length === 0) return;
+    if (activeTab !== 'availability' || !primaryVendor) return;
     const fetchAvailability = async () => {
       setAvailabilityLoading(true);
       const { data } = await supabase
         .from('vendor_availability')
         .select('*')
-        .eq('vendor_id', vendors[0].id);
+        .eq('vendor_id', primaryVendor.id);
       if (data) {
         const map: Record<string, boolean> = {};
         data.forEach((a: { date: string; is_available: boolean }) => {
@@ -256,16 +370,16 @@ export default function VendorDashboard() {
       setAvailabilityLoading(false);
     };
     fetchAvailability();
-  }, [activeTab, vendors]);
+  }, [activeTab, primaryVendor]);
 
   // Fetch chat messages when tab opens
   useEffect(() => {
-    if (activeTab !== 'chat' || vendors.length === 0) return;
+    if (activeTab !== 'chat' || !primaryVendor) return;
     const fetchMessages = async () => {
       const { data } = await supabase
         .from('chat_messages')
         .select('*')
-        .eq('vendor_id', vendors[0].id)
+        .eq('vendor_id', primaryVendor.id)
         .order('created_at', { ascending: true });
       if (data) {
         setMessages(data as ChatMessage[]);
@@ -275,11 +389,11 @@ export default function VendorDashboard() {
       }
     };
     fetchMessages();
-  }, [activeTab, vendors]);
+  }, [activeTab, primaryVendor, selectedCustomer]);
 
   // Fetch vendor profile when tab opens
   useEffect(() => {
-    if (activeTab !== 'profile' || vendors.length === 0 || !user) return;
+    if (activeTab !== 'profile' || !primaryVendor || !user) return;
     const fetchProfile = async () => {
       let data = null;
       try {
@@ -295,7 +409,7 @@ export default function VendorDashboard() {
           const { data: fallbackData } = await supabase
             .from('vendor_profiles')
             .select('*')
-            .eq('vendor_id', vendors[0].id)
+            .eq('vendor_id', primaryVendor.id)
             .maybeSingle();
           if (fallbackData) data = fallbackData;
         }
@@ -306,32 +420,32 @@ export default function VendorDashboard() {
         setVendorProfile(data as VendorProfileData);
       } else {
         setVendorProfile({
-          vendor_id: vendors[0].id,
-          business_name: vendors[0].name || '',
-          bio: vendors[0].description || '',
+          vendor_id: primaryVendor.id,
+          business_name: primaryVendor.name || '',
+          bio: primaryVendor.description || '',
           gst_number: '',
           pan_number: '',
           bank_account: '',
           ifsc: '',
-          instagram: vendors[0].details?.instagram || '',
-          facebook: vendors[0].details?.facebook || '',
-          website: vendors[0].details?.website || '',
+          instagram: primaryVendor.details?.instagram || '',
+          facebook: primaryVendor.details?.facebook || '',
+          website: primaryVendor.details?.website || '',
         });
       }
     };
     fetchProfile();
-  }, [activeTab, vendors, user]);
+  }, [activeTab, primaryVendor, user]);
 
   // Fetch profile reviews when tab opens
   useEffect(() => {
-    if (activeTab !== 'profile' || vendors.length === 0) return;
+    if (activeTab !== 'profile' || !primaryVendor) return;
     const fetchReviews = async () => {
       setProfileReviewsLoading(true);
       try {
         const { data } = await supabase
           .from('reviews')
           .select('*')
-          .eq('vendor_id', vendors[0].id)
+          .eq('vendor_id', primaryVendor.id)
           .order('created_at', { ascending: false });
         if (data) {
           setProfileReviews(data);
@@ -342,7 +456,7 @@ export default function VendorDashboard() {
       setProfileReviewsLoading(false);
     };
     fetchReviews();
-  }, [activeTab, vendors]);
+  }, [activeTab, primaryVendor]);
 
   // Synchronize form values with vendor and profile data
   useEffect(() => {
@@ -370,12 +484,12 @@ export default function VendorDashboard() {
 
   // Services handlers
   const handleAddService = async () => {
-    if (!vendors[0] || !serviceForm.title) return;
+    if (!primaryVendor || !serviceForm.title) return;
     setServiceLoading(true);
     const { data, error } = await supabase
       .from('vendor_services')
       .insert({
-        vendor_id: vendors[0].id,
+        vendor_id: primaryVendor.id,
         title: serviceForm.title,
         description: serviceForm.description,
         price: parseFloat(serviceForm.price) || 0,
@@ -399,20 +513,20 @@ export default function VendorDashboard() {
 
   // Availability handler
   const toggleAvailability = async (date: string) => {
-    if (!vendors[0]) return;
+    if (!primaryVendor) return;
     const newStatus = !availabilityMap[date];
     setAvailabilityMap(prev => ({ ...prev, [date]: newStatus }));
     await supabase
       .from('vendor_availability')
-      .upsert({ vendor_id: vendors[0].id, date, is_available: newStatus });
+      .upsert({ vendor_id: primaryVendor.id, date, is_available: newStatus });
   };
 
   // Chat handler
   const handleSendMessage = async () => {
-    if (!vendors[0] || !newMessage.trim() || !selectedCustomer) return;
+    if (!primaryVendor || !newMessage.trim() || !selectedCustomer) return;
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
-      vendor_id: vendors[0].id,
+      vendor_id: primaryVendor.id,
       customer_email: selectedCustomer,
       sender_type: 'vendor',
       message: newMessage.trim(),
@@ -421,7 +535,7 @@ export default function VendorDashboard() {
     setMessages(prev => [...prev, msg]);
     setNewMessage('');
     await supabase.from('chat_messages').insert({
-      vendor_id: vendors[0].id,
+      vendor_id: primaryVendor.id,
       customer_email: selectedCustomer,
       sender_type: 'vendor',
       message: msg.message,
@@ -513,21 +627,9 @@ export default function VendorDashboard() {
     setSavingProfile(false);
     setIsEditingProfile(false);
   };
-  
-  const totalRevenue = bookings.filter(b => b.payment_status === 'paid').reduce((s, b) => s + b.total_amount, 0);
-  const thisMonth = bookings.filter(b => {
-    const d = new Date(b.created_at);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).length;
-  const avgRating = vendors.length ? (vendors.reduce((s, v) => s + v.rating, 0) / vendors.length).toFixed(1) : '—';
 
-  const stats = [
-    { label: 'Total Bookings', value: String(bookings.length), icon: Calendar, color: 'bg-sage-50 text-sage-600' },
-    { label: 'This Month', value: String(thisMonth), icon: TrendingUp, color: 'bg-sage-100 text-sage-700' },
-    { label: 'Avg Rating', value: avgRating, icon: Star, color: 'bg-cream-100 text-cream-800' },
-    { label: 'Total Revenue', value: `₹${(totalRevenue / 1000).toFixed(0)}K`, icon: BarChart3, color: 'bg-cream-50 text-cream-900' },
-  ];
+
+
 
   const statusBadge = (status: string) => {
     if (status === 'confirmed') return <span className="flex items-center gap-1 text-xs font-bold text-sage-700 bg-sage-100 px-2 py-1 rounded-full"><CheckCircle2 className="w-3 h-3" /> Confirmed</span>;
@@ -611,21 +713,88 @@ export default function VendorDashboard() {
   const avgSatisfaction = vendors.length ? vendors.reduce((s, v) => s + v.rating, 0) / vendors.length : 0;
   const satisfactionPct = (avgSatisfaction / 5) * 100;
 
+  const isApproved = primaryVendor?.verified;
+
   if (loading) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-cream-50 flex items-center justify-center">
-          <div className="w-16 h-16 border-4 border-sage-200 border-t-sage-600 rounded-full animate-spin" />
-        </div>
-      </>
+      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-sage-200 border-t-sage-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!primaryVendor) {
+    return (
+      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-sage-200 border-t-sage-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isApproved) {
+    return (
+      <div className="min-h-screen bg-cream-50 flex flex-col justify-between">
+        {/* Minimal Header */}
+        <header className="bg-gradient-to-r from-sage-900 to-sage-800 py-6 text-white shadow-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-brand rounded-xl flex items-center justify-center shadow-glow">
+                <Building2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-display font-bold text-lg text-white">Festivo Partner Portal</h1>
+                <p className="text-sage-200 text-xs">{user?.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={async () => { await signOut(); navigate('/'); }}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Sign Out
+            </button>
+          </div>
+        </header>
+
+        {/* Pending Approval Screen */}
+        <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-16 flex flex-col justify-center items-center">
+          <div className="bg-white rounded-3xl p-8 md:p-12 text-center border border-sage-100 shadow-xl w-full max-w-2xl transform transition-all animate-scale-in">
+            <div className="w-20 h-20 bg-amber-50 border border-amber-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-soft">
+              <Clock className="w-10 h-10 text-amber-600 animate-pulse" />
+            </div>
+            
+            <h2 className="font-display text-2xl md:text-3xl font-black text-sage-900 mb-3 tracking-tight">
+              Application Under Review
+            </h2>
+            <p className="text-sage-800 text-sm font-semibold mb-2">
+              Business: {primaryVendor.name}
+            </p>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-full mb-6">
+              Status: Pending Admin Approval
+            </span>
+            <p className="text-dark-500 text-sm md:text-base max-w-lg mx-auto mb-8 leading-relaxed">
+              Your vendor registration application has been received and is currently under review by our administration team. Once approved, your listings will go live on the public directory, and your full analytics dashboard will be unlocked.
+            </p>
+
+            <div className="p-4 bg-cream-50/50 rounded-2xl border border-sage-100/30 text-left max-w-md mx-auto">
+              <p className="font-bold text-sage-900 text-xs tracking-wide uppercase">Next Steps</p>
+              <p className="text-dark-500 text-[11px] mt-1 font-medium leading-relaxed">
+                We will verify your submitted documents and credentials. This process typically takes 12 to 24 hours. You will receive an alert inside your portal upon activation.
+              </p>
+            </div>
+          </div>
+        </main>
+
+        {/* Minimal Footer */}
+        <footer className="py-6 border-t border-sage-100 text-center text-[10px] font-semibold text-dark-400 tracking-wider bg-white">
+          &copy; {new Date().getFullYear()} FESTIVO PARTNER PORTAL. ALL RIGHTS RESERVED.
+        </footer>
+      </div>
     );
   }
 
   return (
     <>
-      <Navbar />
-      <div className="min-h-screen bg-cream-50/50 pt-16">
+      <div className="min-h-screen bg-cream-50/50">
         <div className="bg-gradient-to-r from-sage-900 to-sage-800 py-8 relative overflow-hidden">
           <div className="orb w-72 h-72 bg-sage-600/20 -top-20 -left-20 opacity-30" />
           <div className="orb w-72 h-72 bg-gold-500/10 -bottom-20 -right-20" />
@@ -654,9 +823,65 @@ export default function VendorDashboard() {
                 >
                   <Plus className="w-4 h-4" /> Submit Service Listing
                 </button>
-                <button className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-colors">
-                  <Bell className="w-4 h-4" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-colors relative"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center animate-pulse">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {showNotifications && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-card border border-sage-100 z-50 p-4 animate-scale-in origin-top-right">
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-sage-50">
+                        <h4 className="font-display font-bold text-sage-900 text-sm">Notifications</h4>
+                        {unreadCount > 0 && (
+                          <button 
+                            onClick={markAllAsRead} 
+                            className="text-xs text-sage-600 hover:underline font-semibold"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                      {notifications.length === 0 ? (
+                        <div className="text-center py-6 text-dark-400 text-sm">
+                          No notifications yet
+                        </div>
+                      ) : (
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                          {notifications.map(notif => (
+                            <div 
+                              key={notif.id} 
+                              onClick={() => markAsRead(notif.id)}
+                              className={`p-3 rounded-xl text-left cursor-pointer transition-colors ${
+                                (notif.is_read || notif.read) ? 'bg-cream-50/50 hover:bg-cream-50' : 'bg-sage-50/80 hover:bg-sage-50 border-l-4 border-sage-500'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-1.5">
+                                <p className="font-bold text-sage-900 text-xs truncate">{notif.title}</p>
+                                {! (notif.is_read || notif.read) && (
+                                  <span className="w-2 h-2 rounded-full bg-sage-500 flex-shrink-0 mt-1" />
+                                )}
+                              </div>
+                              <p className="text-dark-600 text-[11px] leading-relaxed mt-1 font-medium">{notif.message}</p>
+                              <p className="text-dark-400 text-[9px] mt-1.5 font-medium">
+                                {new Date(notif.created_at || notif.timestamp).toLocaleDateString('en-IN', {
+                                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                                })}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={async () => { await signOut(); navigate('/'); }}
                   className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-medium transition-colors"
@@ -685,21 +910,702 @@ export default function VendorDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {activeTab === 'overview' && (
             <>
-              <div
-                ref={statsView.ref}
-                className={`grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-on-scroll ${statsView.inView ? 'in-view' : ''}`}
-              >
-                {stats.map(stat => (
-                  <div key={stat.label} className="bg-white rounded-2xl shadow-card p-5 card-hover">
-                    <div className={`w-10 h-10 ${stat.color} rounded-xl flex items-center justify-center mb-3`}>
-                      <stat.icon className="w-5 h-5" />
+              {/* Row 1: Welcome Banner (Profile, Business Score, and Rank) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                {/* Profile welcome box */}
+                <div className="lg:col-span-7 bg-gradient-to-r from-sage-900 to-sage-800 text-white rounded-3xl p-6 relative overflow-hidden shadow-soft">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-gold-500/10 to-transparent rounded-bl-full pointer-events-none" />
+                  <div className="flex flex-col sm:flex-row gap-5 items-start relative z-10">
+                    <div className="w-16 h-16 rounded-2xl bg-gold-500/20 border border-gold-400/40 flex items-center justify-center text-gold-400 font-display text-2xl font-bold flex-shrink-0 shadow-soft">
+                      {((profile?.full_name || user?.email)?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'V')}
                     </div>
-                    <p className="font-display text-2xl font-bold text-sage-900">{stat.value}</p>
-                    <p className="text-dark-500 text-sm mt-0.5">{stat.label}</p>
+                    <div className="flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="font-display text-xl sm:text-2xl font-bold">👋 Good Morning, {profile?.full_name || user?.email?.split('@')[0]}</h2>
+                        {primaryVendor?.verified && (
+                          <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                            Verified Vendor
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sage-200 text-sm font-semibold">Business: {primaryVendor?.name || 'No Registered Business'}</p>
+                      
+                      <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-sage-200/90 pt-1">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gold-400">{primaryVendor ? '★'.repeat(Math.round(primaryVendor.rating)) : '☆☆☆☆☆'}</span>
+                          <span>{primaryVendor ? primaryVendor.rating + ' Rating' : 'No Ratings'}</span>
+                        </div>
+                        <span>·</span>
+                        <span>Profile Completion: {primaryVendor ? '92%' : '0%'}</span>
+                        <span>·</span>
+                        <span>Last Login: Today 10:45 AM</span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-3">
+                        <button onClick={() => setActiveTab('profile')} className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/15 text-xs font-bold rounded-xl transition-all">
+                          Edit Profile
+                        </button>
+                        <button onClick={() => navigate('/vendors')} className="px-3.5 py-1.5 bg-gold-500 hover:bg-gold-400 text-sage-950 text-xs font-bold rounded-xl transition-all shadow-md">
+                          View Public Profile
+                        </button>
+                        <button onClick={() => navigator.clipboard.writeText(window.location.origin + '/vendors')} className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/15 text-xs font-bold rounded-xl transition-all">
+                          Share Profile
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Score & Rank details box */}
+                <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-start gap-4">
+                    <div>
+                      <span className="text-sage-600 text-[10px] font-bold uppercase tracking-wider">Vendor Standing</span>
+                      <h4 className="font-display font-extrabold text-sage-900 text-lg mt-0.5">{primaryVendor ? primaryVendor.category : 'Vendor'} Rank</h4>
+                      <p className="text-dark-500 text-xs mt-1 font-semibold">{primaryVendor ? 'Top 12 in Bangalore · Gold Vendor' : 'Complete setup to get ranked'}</p>
+                    </div>
+                    <div className="w-11 h-11 rounded-xl bg-gold-50 flex items-center justify-center flex-shrink-0 shadow-soft">
+                      <Star className="w-6 h-6 text-gold-500 fill-gold-500" />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-sage-50 flex items-center justify-between gap-4 mt-4">
+                    <div>
+                      <p className="text-dark-400 text-xs font-semibold">Business Score</p>
+                      <div className="flex items-baseline gap-1.5 mt-1">
+                        <span className="font-display font-black text-sage-900 text-2xl">{primaryVendor ? '92%' : '0%'}</span>
+                        <span className={`${primaryVendor ? 'text-emerald-600' : 'text-dark-400'} text-xs font-bold`}>{primaryVendor ? 'Excellent' : 'No Data'}</span>
+                      </div>
+                    </div>
+                    {/* Score ring */}
+                    <div className="relative w-12 h-12 flex items-center justify-center">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="24" cy="24" r="20" fill="transparent" stroke="#f1f5f9" strokeWidth="4" />
+                        <circle cx="24" cy="24" r="20" fill="transparent" stroke="#5d8560" strokeWidth="4" strokeDasharray="125" strokeDashoffset={primaryVendor ? "10" : "125"} />
+                      </svg>
+                      <span className="absolute text-[10px] font-extrabold text-sage-900">{primaryVendor ? '92%' : '0%'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: KPI Cards (6 in a row) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+                {[
+                  { label: 'Revenue', val: primaryVendor ? '₹' + totalEarnings.toLocaleString('en-IN') : '₹0', icon: DollarSign, color: 'bg-emerald-50 text-emerald-700' },
+                  { label: 'Bookings', val: primaryVendor ? String(bookings.length) : '0', icon: Calendar, color: 'bg-sage-50 text-sage-700' },
+                  { label: 'Pending Leads', val: primaryVendor ? String(bookingRequests.filter(r => r.status === 'Pending').length) : '0', icon: MessageSquare, color: 'bg-amber-50 text-amber-700' },
+                  { label: 'Upcoming Events', val: primaryVendor ? String(bookings.filter(b => b.status === 'confirmed').length) : '0', icon: Clock, color: 'bg-blue-50 text-blue-700' },
+                  { label: 'Profile Views', val: primaryVendor ? String(totalViews) : '0', icon: Eye, color: 'bg-purple-50 text-purple-700' },
+                  { label: 'Average Rating', val: primaryVendor ? (primaryVendor.rating || '0.0') + ' ★' : '0.0 ★', icon: Star, color: 'bg-gold-50 text-gold-700' }
+                ].map((kpi, idx) => (
+                  <div key={idx} className="bg-white rounded-2xl border border-sage-100 p-4.5 card-hover shadow-sm flex flex-col justify-between">
+                    <div className={`w-9 h-9 rounded-xl ${kpi.color} flex items-center justify-center mb-3 shadow-soft`}>
+                      <kpi.icon className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <p className="font-display font-extrabold text-sage-900 text-lg leading-tight">{kpi.val}</p>
+                      <p className="text-dark-500 text-xs mt-1 font-semibold">{kpi.label}</p>
+                    </div>
                   </div>
                 ))}
               </div>
 
+              {/* Row 3: Revenue Chart & Booking Chart */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                {/* Revenue Analytics (7 cols) */}
+                <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div className="flex items-center justify-between border-b border-sage-50 pb-4 mb-4">
+                    <div>
+                      <h3 className="font-display font-bold text-sage-900 text-base">Revenue Analytics</h3>
+                      <p className="text-dark-400 text-xs mt-0.5 font-semibold">Earnings & Net Income Tracking</p>
+                    </div>
+                    {/* Filter tabs */}
+                    <div className="flex gap-1 bg-sage-50 p-1 rounded-xl">
+                      {['week', 'month', 'year'].map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setRevFilter(t as any)}
+                          className={`px-3 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all ${
+                            revFilter === t ? 'bg-white text-sage-700 shadow-sm' : 'text-dark-400 hover:text-sage-600'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* SVG Revenue Line Graph */}
+                  <div className="relative w-full h-48 py-2">
+                    <svg className="w-full h-full" viewBox="0 0 100 40" preserveAspectRatio="none">
+                      {/* Grid lines */}
+                      <line x1="0" y1="10" x2="100" y2="10" stroke="#f1f5f9" strokeWidth="0.2" />
+                      <line x1="0" y1="20" x2="100" y2="20" stroke="#f1f5f9" strokeWidth="0.2" />
+                      <line x1="0" y1="30" x2="100" y2="30" stroke="#f1f5f9" strokeWidth="0.2" />
+                      {/* Earnings line */}
+                      <path d="M 0,35 Q 25,25 50,15 T 100,5" fill="none" stroke="#5d8560" strokeWidth="1.2" />
+                      {/* Net Income line */}
+                      <path d="M 0,38 Q 25,30 50,22 T 100,10" fill="none" stroke="#10b981" strokeWidth="1.2" strokeDasharray="1" />
+                      {/* Commission line */}
+                      <path d="M 0,39 Q 25,38 50,35 T 100,32" fill="none" stroke="#c19350" strokeWidth="1" />
+                    </svg>
+                    <div className="absolute inset-0 flex justify-between pointer-events-none items-end text-[9px] text-dark-400 font-bold px-1">
+                      <span>Start</span>
+                      <span>Mid-Point</span>
+                      <span>End-Period</span>
+                    </div>
+                  </div>
+
+                  {/* Legends */}
+                  <div className="flex justify-start gap-5 pt-4 border-t border-sage-50 text-[11px] font-bold text-dark-500">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-sage-600" />
+                      <span>Earnings</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <span>Net Income</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-gold-500" />
+                      <span>Commission</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Booking Overview Pie Chart (5 cols) */}
+                <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div className="border-b border-sage-50 pb-4 mb-4">
+                    <h3 className="font-display font-bold text-sage-900 text-base">Booking Overview</h3>
+                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Distribution & Target Projections</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                    {/* CSS Circle Donut Pie Chart */}
+                    <div className="flex justify-center py-2">
+                      <div className="relative w-32 h-32 rounded-full border-8 border-sage-600 flex items-center justify-center shadow-soft">
+                        <div className="absolute inset-0 rounded-full border-8 border-gold-500 border-t-transparent border-r-transparent transform rotate-45" />
+                        <div className="absolute inset-0 rounded-full border-8 border-rose-500 border-t-transparent border-l-transparent transform -rotate-12" />
+                        <div className="text-center">
+                          <p className="text-[10px] text-dark-400 font-bold uppercase">Total Bookings</p>
+                          <p className="font-display font-extrabold text-sage-900 text-lg leading-tight">42</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Booking timeline list */}
+                    <div className="space-y-2">
+                      {[
+                        { label: "Today's Bookings", val: '3', bg: 'bg-sage-50 text-sage-900' },
+                        { label: 'Tomorrow', val: '2', bg: 'bg-cream-50 text-cream-950' },
+                        { label: 'This Week', val: '8', bg: 'bg-sage-50 text-sage-900' },
+                        { label: 'This Month', val: '31', bg: 'bg-gold-50 text-gold-900' }
+                      ].map((item, idx) => (
+                        <div key={idx} className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold ${item.bg}`}>
+                          <span>{item.label}</span>
+                          <span className="font-bold">{item.val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Status checklist */}
+                  <div className="flex flex-wrap gap-2.5 justify-center pt-4 border-t border-sage-50 text-[10px] font-bold text-dark-500">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-sage-600" /> Completed</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Upcoming</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Pending</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" /> Cancelled</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" /> Rejected</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Latest Booking Requests & Availability Calendar */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                {/* Latest Booking Requests (7 cols) */}
+                <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="border-b border-sage-50 pb-4 mb-4">
+                      <h3 className="font-display font-bold text-sage-900 text-base">Latest Booking Requests</h3>
+                      <p className="text-dark-400 text-xs mt-0.5 font-semibold">Active incoming client leads</p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-sage-100 text-[10px] text-dark-500 font-bold uppercase tracking-wider">
+                            <th className="pb-2 text-left">Customer</th>
+                            <th className="pb-2 text-left">Event</th>
+                            <th className="pb-2 text-left">Budget</th>
+                            <th className="pb-2 text-left">Date</th>
+                            <th className="pb-2 text-left">Status</th>
+                            <th className="pb-2 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-sage-50 text-xs font-semibold">
+                          {bookingRequests.map(req => (
+                            <tr key={req.id} className="hover:bg-sage-50/40 transition-colors">
+                              <td className="py-3 text-sage-900 font-bold">{req.customer}</td>
+                              <td className="py-3 text-dark-700">{req.event}</td>
+                              <td className="py-3 text-sage-800 font-bold">{req.budget}</td>
+                              <td className="py-3 text-dark-500">{req.date}</td>
+                              <td className="py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                  req.status === 'Accepted' 
+                                    ? 'bg-emerald-100 text-emerald-800' 
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {req.status}
+                                </span>
+                              </td>
+                              <td className="py-3 text-right">
+                                <div className="flex gap-1 justify-end">
+                                  {req.status === 'Pending' && (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setBookingRequests(bookingRequests.map(r => r.id === req.id ? { ...r, status: 'Accepted' } : r));
+                                        }}
+                                        className="px-2 py-0.5 bg-gradient-brand text-white text-[10px] font-bold rounded-lg shadow-sm"
+                                      >
+                                        Accept
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setBookingRequests(bookingRequests.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));
+                                        }}
+                                        className="px-2 py-0.5 bg-cream-200 text-cream-800 text-[10px] font-bold rounded-lg"
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                  <button onClick={() => setActiveTab('bookings')} className="px-2 py-0.5 bg-sage-100 hover:bg-sage-200 text-sage-800 text-[10px] font-bold rounded-lg">
+                                    View
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Availability Calendar (5 cols) */}
+                <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="border-b border-sage-50 pb-4 mb-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="font-display font-bold text-sage-900 text-base">Availability Calendar</h3>
+                        <p className="text-dark-400 text-xs mt-0.5 font-semibold">August 2026 Schedule</p>
+                      </div>
+                      <span className="text-[10px] font-bold bg-sage-50 text-sage-700 px-2 py-0.5 rounded border border-sage-100">
+                        Monthly
+                      </span>
+                    </div>
+
+                    {/* Mini Calendar mockup */}
+                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-dark-500 mb-4">
+                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} className="py-1 text-sage-600">{d}</div>)}
+                      {[...Array(31)].map((_, i) => {
+                        const dayNum = i + 1;
+                        const dateStr = `2026-08-${dayNum < 10 ? '0' + dayNum : dayNum}`;
+                        const isBlocked = blockedDates.includes(dateStr);
+                        const isHoliday = dayNum === 15;
+                        const isBooked = dayNum === 10 || dayNum === 12;
+
+                        let bgStyle = 'bg-cream-50/50 border-transparent';
+                        if (isBooked) bgStyle = 'bg-emerald-500 text-white border-emerald-600';
+                        else if (isBlocked) bgStyle = 'bg-rose-500 text-white border-rose-600';
+                        else if (isHoliday) bgStyle = 'bg-amber-500 text-white border-amber-600';
+
+                        return (
+                          <div
+                            key={i}
+                            onClick={() => {
+                              if (blockedDates.includes(dateStr)) {
+                                setBlockedDates(blockedDates.filter(d => d !== dateStr));
+                              } else {
+                                setBlockedDates([...blockedDates, dateStr]);
+                              }
+                            }}
+                            className={`py-1.5 rounded-lg border text-[9px] font-extrabold cursor-pointer transition-all hover:scale-105 ${bgStyle}`}
+                          >
+                            {dayNum}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Calendar legends */}
+                    <div className="flex flex-wrap gap-2 text-[9px] font-bold text-dark-400 justify-center">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-cream-100 border border-sage-200" /> Available</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-emerald-500" /> Booked</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-amber-500" /> Holiday</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-rose-500" /> Blocked</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-sage-50">
+                    <button
+                      onClick={() => setBlockedDates([...blockedDates, '2026-08-01'])}
+                      className="py-1.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
+                    >
+                      Block Date
+                    </button>
+                    <button
+                      onClick={() => setBlockedDates([])}
+                      className="py-1.5 bg-sage-800 hover:bg-sage-900 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
+                    >
+                      Open All Dates
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 5: Top Services & Earnings Summary */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                {/* Top Services (6 cols) */}
+                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div className="border-b border-sage-50 pb-4 mb-4">
+                    <h3 className="font-display font-bold text-sage-900 text-base">Top Services</h3>
+                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Listing booking distributions</p>
+                  </div>
+
+                  {/* Horizontal Bar Chart */}
+                  <div className="space-y-4 py-2">
+                    {[
+                      { name: 'Wedding Photography', count: primaryVendor ? 52 : 0, pct: primaryVendor ? 'w-full' : 'w-0', bg: 'bg-sage-600' },
+                      { name: 'Pre-Wedding Shoot', count: primaryVendor ? 32 : 0, pct: primaryVendor ? 'w-3/5' : 'w-0', bg: 'bg-gold-500' },
+                      { name: 'Birthday Shoot', count: primaryVendor ? 24 : 0, pct: primaryVendor ? 'w-[45%]' : 'w-0', bg: 'bg-sage-500' },
+                      { name: 'Corporate Events', count: primaryVendor ? 16 : 0, pct: primaryVendor ? 'w-[30%]' : 'w-0', bg: 'bg-cream-800' }
+                    ].map((svc, idx) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className="text-sage-900">{svc.name}</span>
+                          <span className="text-dark-500">{svc.count} Bookings</span>
+                        </div>
+                        <div className="w-full bg-sage-50 h-3 rounded-full overflow-hidden border border-sage-100">
+                          <div className={`h-full ${svc.bg} ${svc.pct} rounded-full`} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Earnings Summary (6 cols) */}
+                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div className="border-b border-sage-50 pb-4 mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-display font-bold text-sage-900 text-base">Earnings Summary</h3>
+                      <p className="text-dark-400 text-xs mt-0.5 font-semibold">Withdraw settlements history</p>
+                    </div>
+                    <span className="text-emerald-600 text-xs font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded">
+                      Settled
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    {[
+                      { label: "Today's Earnings", val: primaryVendor ? '₹15,000' : '₹0', color: 'text-sage-900' },
+                      { label: 'This Week', val: primaryVendor ? '₹62,000' : '₹0', color: 'text-sage-900' },
+                      { label: 'Pending Payouts', val: primaryVendor ? '₹28,000' : '₹0', color: 'text-amber-600' },
+                      { label: 'Withdrawable Balance', val: primaryVendor ? '₹45,000' : '₹0', color: 'text-emerald-600' }
+                    ].map((item, idx) => (
+                      <div key={idx} className="p-3 bg-cream-50/50 rounded-2xl border border-sage-100/30 text-center">
+                        <p className="text-[10px] text-dark-500 font-semibold">{item.label}</p>
+                        <p className={`font-display font-extrabold text-sm sm:text-base mt-1 ${item.color}`}>{item.val}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (primaryVendor) {
+                        alert('Withdrawal request of ₹45,000 logged securely! Sent for approval.');
+                      } else {
+                        alert('No withdrawable balance available.');
+                      }
+                    }}
+                    className="w-full py-3 bg-gradient-brand hover:shadow-glow text-white font-bold rounded-xl text-xs mt-4 shadow-sm transition-all flex items-center justify-center gap-1.5"
+                  >
+                    Withdraw Money
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 6: Business Insights & Performance Score */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                {/* Business Insights (6 cols) */}
+                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div className="border-b border-sage-50 pb-4 mb-4">
+                    <h3 className="font-display font-bold text-sage-900 text-base">Business Insights</h3>
+                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Platform performance stats</p>
+                  </div>
+
+                  <div className="space-y-3.5 font-semibold">
+                    {[
+                      { label: 'Profile Views', val: primaryVendor ? '2,450' : '0', desc: 'Total calendar views' },
+                      { label: 'Enquiries', val: primaryVendor ? '180' : '0', desc: 'Active chats created' },
+                      { label: 'Conversion Rate', val: primaryVendor ? '38%' : '0%', desc: 'Enquiry to booking ratio' },
+                      { label: 'Repeat Customers', val: primaryVendor ? '42%' : '0%', desc: 'Repeat corporate client book' },
+                      { label: 'Average Response Time', val: primaryVendor ? '18 min' : '—', desc: 'Average first response' }
+                    ].map((insight, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-2.5 bg-cream-50/30 rounded-xl border border-sage-100/30">
+                        <div>
+                          <p className="text-sage-900 text-xs font-bold">{insight.label}</p>
+                          <span className="text-[9px] text-dark-400">{insight.desc}</span>
+                        </div>
+                        <span className="font-display font-black text-sage-800 text-sm">{insight.val}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Performance Score & Monthly Target (6 cols) */}
+                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="border-b border-sage-50 pb-4 mb-4">
+                      <h3 className="font-display font-bold text-sage-900 text-base">Performance Score</h3>
+                      <p className="text-dark-400 text-xs mt-0.5 font-semibold">Based on platform response rating</p>
+                    </div>
+
+                    <div className="space-y-2.5 pb-4 border-b border-sage-50">
+                      {[
+                        { name: 'Response Time', pct: primaryVendor ? '88%' : '0%' },
+                        { name: 'Reviews Score', pct: primaryVendor ? '92%' : '0%' },
+                        { name: 'Profile Quality', pct: primaryVendor ? '92%' : '0%' },
+                        { name: 'Acceptance Rate', pct: primaryVendor ? '93%' : '0%' }
+                      ].map((bar, idx) => (
+                        <div key={idx} className="space-y-1 text-[11px] font-bold text-dark-500">
+                          <div className="flex justify-between">
+                            <span>{bar.name}</span>
+                            <span>{bar.pct}</span>
+                          </div>
+                          <div className="w-full bg-sage-50 h-2 rounded-full overflow-hidden border border-sage-100/50">
+                            <div className="h-full bg-sage-600 rounded-full" style={{ width: bar.pct }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Monthly target */}
+                  <div className="pt-4">
+                    <div className="flex justify-between items-baseline text-xs font-bold mb-1.5">
+                      <span className="text-sage-900">Monthly Goal</span>
+                      <span className="text-dark-500">{primaryVendor ? '₹3,60,000 / ₹5,00,000 (72%)' : '₹0 / ₹0 (0%)'}</span>
+                    </div>
+                    <div className="w-full bg-sage-50 h-3.5 rounded-full overflow-hidden border border-sage-100 p-0.5">
+                      <div className="h-full bg-gold-500 rounded-full flex items-center justify-end pr-2 text-[9px] font-extrabold text-sage-950" style={{ width: primaryVendor ? '72%' : '0%' }}>
+                        {primaryVendor ? '72%' : '0%'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 7: Customer Reviews & Messages */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                {/* Customer Reviews (7 cols) */}
+                <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="border-b border-sage-50 pb-4 mb-4 flex justify-between items-center">
+                      <div>
+                        <h3 className="font-display font-bold text-sage-900 text-base">Customer Reviews</h3>
+                        <p className="text-dark-400 text-xs mt-0.5 font-semibold">Latest verified bookings reviews</p>
+                      </div>
+                      <span className="text-gold-600 text-xs font-bold bg-gold-50 border border-gold-100 px-2 py-0.5 rounded">
+                        Latest 5
+                      </span>
+                    </div>
+
+                    <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
+                      {reviewsList.map((rev, idx) => (
+                        <div key={rev.id} className="p-3 bg-cream-50/30 rounded-2xl border border-sage-100/30 text-xs font-semibold space-y-1.5">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-sage-900 font-bold">{rev.author}</span>
+                              <span className="text-dark-400 text-[10px] ml-1.5">for {rev.event}</span>
+                            </div>
+                            <span className="text-gold-500">{'★'.repeat(Math.floor(rev.rating))}</span>
+                          </div>
+                          <p className="text-dark-500 font-medium italic">"{rev.comment}"</p>
+                          {rev.reply && (
+                            <div className="bg-sage-50/50 p-2 rounded-xl text-sage-800 border border-sage-100 mt-1 font-semibold text-[10px]">
+                              <b>Your Reply:</b> {rev.reply}
+                            </div>
+                          )}
+                          {!rev.reply && (
+                            <div className="flex justify-end pt-1">
+                              {replyIndex === idx ? (
+                                <div className="w-full space-y-1.5">
+                                  <input
+                                    type="text"
+                                    placeholder="Write a professional reply..."
+                                    value={replyText}
+                                    onChange={(e) => setReplyText(e.target.value)}
+                                    className="w-full px-3 py-1 border border-sage-200 rounded-lg text-[10px] outline-none"
+                                  />
+                                  <div className="flex gap-1 justify-end">
+                                    <button
+                                      onClick={() => {
+                                        if (replyText.trim()) {
+                                          setReviewsList(reviewsList.map(r => r.id === rev.id ? { ...r, reply: replyText } : r));
+                                          setReplyIndex(null);
+                                          setReplyText('');
+                                        }
+                                      }}
+                                      className="px-2.5 py-1 bg-gradient-brand text-white text-[9px] font-bold rounded-lg shadow-sm"
+                                    >
+                                      Submit
+                                    </button>
+                                    <button onClick={() => setReplyIndex(null)} className="px-2.5 py-1 bg-slate-100 text-dark-500 text-[9px] font-bold rounded-lg">
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => { setReplyIndex(idx); setReplyText(''); }}
+                                  className="text-sage-600 font-bold hover:underline text-[10px]"
+                                >
+                                  Reply to Review
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Messages (5 cols) */}
+                <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="border-b border-sage-50 pb-4 mb-4 flex justify-between items-center">
+                      <div>
+                        <h3 className="font-display font-bold text-sage-900 text-base">In-App Messages</h3>
+                        <p className="text-dark-400 text-xs mt-0.5 font-semibold">Recent customer chats</p>
+                      </div>
+                      <span className="text-emerald-700 text-[10px] font-extrabold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        {primaryVendor ? '12 Unread' : '0 Unread'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(primaryVendor ? [
+                        { name: 'Rahul S.', subject: 'Quotation Request for August 10 Wedding', time: '10 min ago' },
+                        { name: 'Sneha P.', subject: 'Photoshoot venue directions & timeline', time: '1 hour ago' },
+                        { name: 'Vikram K.', subject: 'Package customisation enquiries check', time: 'Yesterday' }
+                      ] : []).map((msg, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-cream-50/40 rounded-xl border border-sage-100/30 text-xs font-semibold">
+                          <div>
+                            <p className="text-sage-900 font-bold">{msg.name}</p>
+                            <p className="text-dark-500 text-[10px] truncate max-w-[190px]">{msg.subject}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[9px] text-dark-400 block">{msg.time}</span>
+                            <button onClick={() => setActiveTab('chat')} className="text-[10px] text-sage-600 font-bold hover:underline mt-1">
+                              View Chat
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button onClick={() => setActiveTab('chat')} className="w-full py-2.5 bg-sage-800 text-white font-bold rounded-xl text-xs mt-4">
+                    Open Inbox
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 8: AI Suggestions & System Notifications */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                {/* AI Suggestions (6 cols) */}
+                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div className="border-b border-sage-50 pb-4 mb-4">
+                    <h3 className="font-display font-bold text-sage-900 text-base">AI Business Suggestions</h3>
+                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Algorithm recommendations to boost bookings</p>
+                  </div>
+
+                  <div className="space-y-3 font-semibold">
+                    {(primaryVendor ? [
+                      { tip: 'Upload more Wedding Photos', score: 'Increases views by 24%', style: 'bg-emerald-50 border-emerald-100 text-emerald-800' },
+                      { tip: 'Customers are searching for Drone Photography', score: 'Add this package keyword to category lists', style: 'bg-gold-50 border-gold-200 text-gold-900' },
+                      { tip: 'Your average response time increased by 12%', score: 'Respond faster to keep priority badges', style: 'bg-rose-50 border-rose-100 text-rose-800' },
+                      { tip: 'Offer a Festival Discount package', score: 'Clients booking now are looking for deals', style: 'bg-sage-50 border-sage-100 text-sage-800' },
+                      { tip: 'Update your portfolio cover image', score: 'Attracts 3.5x higher click through rate', style: 'bg-purple-50 border-purple-100 text-purple-800' }
+                    ] : [
+                      { tip: 'Complete your Business Setup', score: 'Register your business first to start getting bookings suggestions.', style: 'bg-emerald-50 border-emerald-100 text-emerald-800' }
+                    ]).map((item, idx) => (
+                      <div key={idx} className={`p-3 rounded-2xl border text-xs font-semibold ${item.style}`}>
+                        <p className="font-bold">{item.tip}</p>
+                        <span className="text-[10px] opacity-90 block mt-0.5">{item.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* System Notifications (6 cols) */}
+                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
+                  <div className="border-b border-sage-50 pb-4 mb-4">
+                    <h3 className="font-display font-bold text-sage-900 text-base">System Notifications</h3>
+                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Key compliance & system alerts</p>
+                  </div>
+
+                  <div className="space-y-3 font-semibold">
+                    {(primaryVendor ? [
+                      { icon: CheckCircle2, text: 'Booking Confirmed: Rahul S. Wedding - Aug 10 locked.', time: '10 min ago', color: 'text-emerald-600 bg-emerald-50' },
+                      { icon: DollarSign, text: 'Payment Received: ₹25,000 escrow deposit credited.', time: '1 hour ago', color: 'text-gold-600 bg-gold-50' },
+                      { icon: Star, text: 'Review Added: Verified review by Sneha P. published.', time: '2 hours ago', color: 'text-sage-700 bg-sage-50' },
+                      { icon: FileText, text: 'Document Expiring: Re-upload PAN/Aadhaar identity verification.', time: '1 day ago', color: 'text-rose-600 bg-rose-50' },
+                      { icon: Shield, text: 'Subscription Status: Premium listing tier renewal due.', time: '2 days ago', color: 'text-blue-600 bg-blue-50' }
+                    ] : [
+                      { icon: CheckCircle2, text: 'Welcome to Festivo! Please complete your vendor registration to get started.', time: 'Just now', color: 'text-emerald-600 bg-emerald-50' }
+                    ]).map((notif, idx) => (
+                      <div key={idx} className="flex gap-3 items-start p-2.5 bg-cream-50/20 rounded-xl border border-sage-100/30 text-xs font-semibold">
+                        <div className={`w-8 h-8 rounded-lg ${notif.color} flex items-center justify-center flex-shrink-0 shadow-soft`}>
+                          <notif.icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sage-900 leading-normal">{notif.text}</p>
+                          <span className="text-[9px] text-dark-400 block mt-0.5">{notif.time}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 9: Quick Actions Grid (Full Width) */}
+              <div className="bg-white rounded-3xl p-6 border border-sage-100 shadow-sm">
+                <h3 className="font-display font-bold text-sage-900 text-base mb-5">Quick Dashboard Actions</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {[
+                    { label: 'Add Package', action: () => setActiveTab('services') },
+                    { label: 'Upload Portfolio', action: () => setActiveTab('profile') },
+                    { label: 'Add Offer', action: () => setActiveTab('profile') },
+                    { label: 'Block Dates', action: () => setActiveTab('availability') },
+                    { label: 'Download Invoice', action: () => alert('GST-compliant invoices downloaded to documents!') },
+                    { label: 'Withdraw Money', action: () => alert('Balance withdrawal logged!') }
+                  ].map((btn, idx) => (
+                    <button
+                      key={idx}
+                      onClick={btn.action}
+                      className="py-3 px-4 bg-cream-50 hover:bg-cream-100 text-sage-950 border border-sage-100 rounded-2xl text-xs font-bold transition-all card-hover shadow-soft flex items-center justify-center gap-1.5"
+                    >
+                      + {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               {vendors.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-card p-12 text-center">
                   <div className="w-20 h-20 bg-sage-100 rounded-full flex items-center justify-center mx-auto mb-5">
@@ -1364,9 +2270,27 @@ export default function VendorDashboard() {
             </div>
           )}
 
-          {activeTab === 'profile' && primaryVendor && (
+          {activeTab === 'profile' && (
             <div className="max-w-7xl mx-auto space-y-6">
-              {!isEditingProfile ? (
+              {!primaryVendor ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-sage-100 shadow-soft">
+                  <div className="w-20 h-20 bg-sage-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Building2 className="w-10 h-10 text-sage-600" />
+                  </div>
+                  <h3 className="font-display text-2xl font-bold text-sage-900 mb-3">No Active Business Profile</h3>
+                  <p className="text-dark-500 max-w-md mx-auto mb-8 leading-relaxed">
+                    You have not registered a business profile on Festivo yet. Complete your business setup to activate your public profile, list services, and start accepting client bookings.
+                  </p>
+                  <button
+                    onClick={() => navigate('/vendor-registration')}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow transition-all"
+                  >
+                    <Plus className="w-4 h-4" /> Setup Business Profile
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {!isEditingProfile ? (
                 /* PUBLIC PROFILE PREVIEW MODE */
                 <div className="space-y-6 animate-fade-in">
                   {/* Hex/Mesh Gradient Banner */}
@@ -1835,6 +2759,8 @@ export default function VendorDashboard() {
                   </div>
                 </div>
               )}
+            </>
+          )}
             </div>
           )}
         </div>
