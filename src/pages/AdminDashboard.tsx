@@ -302,6 +302,15 @@ export default function AdminDashboard() {
     };
     localStorage.setItem('festivo_notifications', JSON.stringify([...notifications, newNotification]));
 
+    // Sync to Supabase database
+    try {
+      supabase.from('vendors').update({ details: updatedVendor.details }).eq('id', vendor.id).then(({ error }) => {
+        if (error) console.warn('Supabase stage 1 update error:', error);
+      });
+    } catch (e) {
+      console.warn('Supabase stage 1 update catch:', e);
+    }
+
     setActionNotice(`✓ Listing details accepted for "${vendor.name}". Staged to Pending KYC.`);
     setSelectedApp(null);
     setTimeout(() => setActionNotice(null), 4000);

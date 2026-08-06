@@ -710,8 +710,19 @@ export default function VendorDashboard() {
   // Handle pending review check if demoMode is disabled and primaryVendor verified is false
   const getActiveStatus = () => {
     if (demoMode) return 'Approved';
+
+    // 1. Check if we loaded a verified/approved vendor from Supabase
+    if (vendors.length > 0) {
+      const activeV = vendors[0];
+      if (activeV.verified || activeV.details?.status === 'Approved') {
+        return 'Approved';
+      }
+      if (activeV.details?.status) {
+        return activeV.details.status;
+      }
+    }
     
-    // Look up in local storage pending list
+    // 2. Look up in local storage pending list
     const pendingList = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
     const matchedPending = pendingList.find((v: any) => 
       v.details?.email?.toLowerCase() === user?.email?.toLowerCase()
@@ -720,7 +731,7 @@ export default function VendorDashboard() {
       return matchedPending.details?.status || 'Pending Verification';
     }
 
-    // Look up in approved list
+    // 3. Look up in approved list
     const approvedList = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
     const matchedApproved = approvedList.find((v: any) => 
       v.details?.email?.toLowerCase() === user?.email?.toLowerCase()
@@ -729,7 +740,7 @@ export default function VendorDashboard() {
       return 'Approved';
     }
 
-    // Default fallback check
+    // 4. Default fallback check
     if (user?.email?.toLowerCase() === 'vendor@festivo.com') return 'Approved';
     return 'Unregistered';
   };
@@ -806,6 +817,25 @@ export default function VendorDashboard() {
       read: false
     };
     localStorage.setItem('festivo_admin_notifications', JSON.stringify([newAdminNotification, ...adminNotifications]));
+
+    // Sync to Supabase database
+    const matchedVendor = pendingList.find((v: any) => v.details?.email?.toLowerCase() === user?.email?.toLowerCase());
+    if (vendorId && matchedVendor) {
+      supabase.from('vendors').update({
+        details: {
+          ...matchedVendor.details,
+          status: 'KYC Submitted',
+          kyc: {
+            aadhaarFront: kycAadhaarFront,
+            aadhaarBack: kycAadhaarBack,
+            pan: kycPan,
+            cancelledCheque: kycCheque,
+          }
+        }
+      }).eq('id', vendorId).then(({ error }) => {
+        if (error) console.warn('Supabase KYC update error:', error);
+      });
+    }
 
     showToast('✓ KYC Documents submitted successfully for verification!');
   };
