@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, User, Mail, Phone, Calendar, Users, FileText,
   CheckCircle2, CreditCard, Lock, Star, MapPin, Shield, Wallet,
-  Building, Smartphone, Banknote, ChevronRight
+  Building, Smartphone, Banknote
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { useInView } from '../hooks/useInView';

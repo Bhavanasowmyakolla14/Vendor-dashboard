@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  Award, BookOpen, Briefcase, Code2, Cpu, Database,
-  Github, Globe, GraduationCap, Heart, Instagram, Layers,
+  BookOpen, Code2, Database,
+  Github, Globe, Heart, Instagram, Layers,
   Linkedin, Mail, MapPin, Phone, Rocket, Server, Sparkles,
-  Target, TrendingUp, Trophy, Users, Zap
+  Target, TrendingUp, Trophy, Zap
 } from 'lucide-react';
 import { useInView } from '../hooks/useInView';
 import Navbar from '../components/Navbar';

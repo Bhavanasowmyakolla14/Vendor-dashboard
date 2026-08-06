@@ -1,17 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Building2, Calendar, Star, TrendingUp, Users, Plus, Settings,
-  CheckCircle2, Clock, XCircle, ArrowRight, LogOut, Sparkles,
-  BarChart3, Bell, Eye, Wallet, PieChart, Smile, RefreshCw, X, Check,
-  Package, MessageSquare, Send, Trash2, Save, Instagram, Facebook, Globe,
-  FileText, CreditCard, MapPin, ArrowLeft, DollarSign, Shield
+  Building2, Calendar, Star, TrendingUp, Plus, Settings,
+  Clock, LogOut, Bell, Wallet, X, Check,
+  Package, MessageSquare, Send, Trash2, Instagram, Facebook, Globe,
+  MapPin, DollarSign, Percent, HelpCircle, ChevronRight, Image as ImageIcon, ToggleLeft, ToggleRight,
+  Menu, AlertCircle, Upload, XCircle, Camera, ArrowRight, ArrowLeft, Store
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { supabase, sanitizeVendors } from '../lib/supabase';
 import type { Booking, Vendor } from '../lib/supabase';
-import { useInView } from '../hooks/useInView';
-import { getCategory } from '../lib/categories';
 
 type BookingWithVendor = Booking & { vendor_name?: string };
 
@@ -36,707 +34,962 @@ type ChatMessage = {
   created_at: string;
 };
 
-type VendorProfileData = {
-  vendor_id: string;
-  business_name: string;
-  bio: string;
-  gst_number: string;
-  pan_number: string;
-  bank_account: string;
-  ifsc: string;
-  instagram: string;
-  facebook: string;
-  website: string;
-};
-
-
-
-const getProTips = (category: string): string[] => {
-  switch (category) {
-    case 'Photographer':
-      return [
-        'Confirm the shot list (candid, family portraits, key events) with the client 48 hours before.',
-        'Deliver a "sneak peek" of 5-10 edited photos within 24-48 hours to wow the customer.',
-        'Coordinate lighting setups and locations with the venue coordinator ahead of time.'
-      ];
-    case 'Decorator':
-    case 'Flower Decor':
-      return [
-        'Perform a walkthrough of the venue to verify ceiling height, pillars, and power supply points.',
-        'Ensure fresh floral arrangements are prepped in a temperature-controlled environment before transport.',
-        'Always keep a backup toolkit (extra zip ties, pins, tape, wire cutters) for last-minute adjustments.'
-      ];
-    case 'Tent House':
-      return [
-        'Confirm fire safety certifications and ensure proper anchoring for all outdoor canopy structures.',
-        'Arrive a day early for large pandal installations to ensure structure safety and timeline buffer.',
-        'Keep spare carpets and waterproof sheets handy in case of sudden weather changes.'
-      ];
-    case 'DJ':
-    case 'Band':
-      return [
-        'Verify the venue\'s sound limit restrictions and double-check electrical load capacity with venue managers.',
-        'Coordinate the entry songs, main highlights, and guest requests lists with the host/anchor.',
-        'Set up and perform a full sound check at least 2 hours before guests start arriving.'
-      ];
-    case 'Catering':
-      return [
-        'Strictly verify that live counter kitchen staff wear clean aprons, hairnets, and gloves at all times.',
-        'Pre-arrange buffet heating fuels and double-check the freshness of ingredients before prep.',
-        'Arrange taste-testing or menu reviews with clients to finalize flavor preferences.'
-      ];
-    case 'Makeup':
-      return [
-        'Recommend a pre-bridal skincare routine and conduct a product sensitivity test during trials.',
-        'Ensure you have proper portable natural-light mirrors in case the dressing room lacks good lighting.',
-        'Clean and sanitize all makeup brushes, sponges, and palettes between bookings.'
-      ];
-    case 'Pandit':
-      return [
-        'Send the list of puja materials (samagri) and pre-requisites to the client well in advance.',
-        'Provide clear explanations of Vedic rituals to the couple and guests during the ceremony to keep it engaging.',
-        'Arrive at least 30 minutes before the muhurat time to prepare the havan altar.'
-      ];
-    case 'Anchor':
-      return [
-        'Conduct a pre-event call with the client to finalize names of key speakers and event flow.',
-        'Coordinate background music and cues with the DJ during key stage moments.',
-        'Prepare backup games, jokes, or crowd engagement activities in case of event delays.'
-      ];
-    case 'Travel':
-      return [
-        'Ensure vehicles are fully detailed, fueled, and air conditioning is working perfectly before dispatch.',
-        'Instruct drivers to arrive 15 minutes before the pickup time and use GPS tracking for route updates.',
-        'Keep emergency helpline numbers and backup vehicle logistics readily available.'
-      ];
-    case 'Wedding Hall':
-      return [
-        'Ensure air conditioning/heating systems are tested and backup generators are fueled.',
-        'Conduct safety sweeps of parking areas, exit gates, and emergency exits before the event.',
-        'Cooperate with decorators and caterers for load-in/load-out timing allocations.'
-      ];
-    default:
-      return [
-        'Keep your portfolio, services, and availability calendar up to date to attract more planners.',
-        'Respond to client inquiries within 1 hour to increase booking conversion rate.',
-        'Ask satisfied customers to write a review on your Festivo profile to build credibility.'
-      ];
-  }
-};
-
 export default function VendorDashboard() {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
+  
+  // Vendors state
   const [vendors, setVendors] = useState<Vendor[]>([]);
-  const primaryVendor = vendors[0];
-  const categoryDef = primaryVendor ? getCategory(primaryVendor.category) : null;
-  const [bookings, setBookings] = useState<BookingWithVendor[]>([]);
+  const primaryVendor = vendors[0] || {
+    id: 'mock-vendor-id',
+    name: 'Festivo Premier Studios',
+    category: 'Photographer',
+    location: 'Bangalore, KA',
+    price_amount: 50000,
+    price_label: 'Starting Package',
+    price_unit: 'event',
+    rating: 4.9,
+    reviews: 28,
+    image: '',
+    gallery: [],
+    tags: ['Candid', 'Traditional', 'Cinematic'],
+    verified: true,
+    badge: 'Premium Partner',
+    badge_color: 'gold',
+    capacity: 'Up to 500 guests',
+    experience_years: 6,
+    slug: 'festivo-premier-studios',
+    details: {
+      email: user?.email || 'vendor@festivo.com',
+      phone: '+91 98765 43210',
+      serviceAreas: ['Bangalore', 'Mysore', 'Coorg'],
+      languages: ['English', 'Kannada', 'Hindi'],
+      workingDays: ['Mon', 'Wed', 'Fri', 'Sat', 'Sun']
+    }
+  };
+
+  // Enable demo mode to bypass pending verification screen
+  const [demoMode, setDemoMode] = useState(false);
+
+  // Tabs navigation
+  const [activeTab, setActiveTab] = useState<
+    | 'dashboard'
+    | 'bookings'
+    | 'calendar'
+    | 'messages'
+    | 'portfolio'
+    | 'packages'
+    | 'reviews'
+    | 'earnings'
+    | 'analytics'
+    | 'deals'
+    | 'settings'
+    | 'support'
+  >('dashboard');
+
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'earnings' | 'analytics' | 'services' | 'availability' | 'chat' | 'profile'>('overview');
-  const [actionMsg, setActionMsg] = useState<{ id: string; text: string; type: 'success' | 'error' } | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Action notifications
+  const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Notification state
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotifications, setShowNotifications] = useState(false);
+  // Notifications state
+  const [notifications, setNotifications] = useState([
+    { id: '1', title: 'Payment Received', message: '₹42,500 credited for Amit & Priya Wedding Shoot.', is_read: false, timestamp: new Date(Date.now() - 3600000).toISOString() },
+    { id: '2', title: 'New Booking Request', message: 'Vikram Dev sent a request for a Pre-Wedding Shoot.', is_read: false, timestamp: new Date(Date.now() - 7200000).toISOString() },
+    { id: '3', title: 'Review Added', message: 'Sneha left a 5-star review: "Excellent work, captured moments..."', is_read: true, timestamp: new Date(Date.now() - 86400000).toISOString() },
+    { id: '4', title: 'Package Viewed', message: 'Your "Corporate Event" package was viewed 14 times today.', is_read: true, timestamp: new Date(Date.now() - 172800000).toISOString() }
+  ]);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  // Custom Dashboard Overview State
-  const [revFilter, setRevFilter] = useState<'week' | 'month' | 'year'>('month');
+  // Bookings state
+  const [bookings, setBookings] = useState<BookingWithVendor[]>([
+    {
+      id: 'b1',
+      vendor_id: 'mock-vendor-id',
+      customer_name: 'Amit Kumar',
+      customer_email: 'amit@gmail.com',
+      customer_phone: '+91 9900112233',
+      event_type: 'Wedding Photography',
+      event_date: '2026-08-15',
+      guests: 300,
+      special_requests: 'Require candid drone shots for the pool side haldi event.',
+      total_amount: 150000,
+      status: 'confirmed',
+      payment_status: 'paid',
+      payment_intent_id: 'pi_mock1',
+      booking_ref: 'FEST-WED-815',
+      created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+      vendor_name: 'Festivo Premier Studios'
+    },
+    {
+      id: 'b2',
+      vendor_id: 'mock-vendor-id',
+      customer_name: 'Sneha Hegde',
+      customer_email: 'sneha@yahoo.com',
+      customer_phone: '+91 8899001122',
+      event_type: 'Birthday Celebration',
+      event_date: '2026-08-12',
+      guests: 80,
+      special_requests: 'Focus on toddler candid expressions.',
+      total_amount: 250000,
+      status: 'confirmed',
+      payment_status: 'paid',
+      payment_intent_id: 'pi_mock2',
+      booking_ref: 'FEST-BDAY-812',
+      created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+      vendor_name: 'Festivo Premier Studios'
+    },
+    {
+      id: 'b3',
+      vendor_id: 'mock-vendor-id',
+      customer_name: 'Anjali Sharma',
+      customer_email: 'anjali@gmail.com',
+      customer_phone: '+91 7766554433',
+      event_type: 'Pre-Wedding shoot',
+      event_date: '2026-08-25',
+      guests: 4,
+      special_requests: 'Traditional outdoor shoot in heritage settings.',
+      total_amount: 40000,
+      status: 'confirmed',
+      payment_status: 'unpaid',
+      payment_intent_id: null,
+      booking_ref: 'FEST-PRE-825',
+      created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+      vendor_name: 'Festivo Premier Studios'
+    }
+  ]);
+
+  // Booking requests (Rapido ride-request style)
   const [bookingRequests, setBookingRequests] = useState([
-    { id: 1, customer: 'Rahul', event: 'Wedding', budget: '₹75,000', date: 'Aug 10', status: 'Pending' },
-    { id: 2, customer: 'Sneha', event: 'Birthday', budget: '₹25,000', date: 'Aug 12', status: 'Accepted' },
-    { id: 3, customer: 'Vikram', event: 'Pre-Wedding', budget: '₹40,000', date: 'Aug 15', status: 'Pending' }
+    { id: 'br1', customer: 'Vikram Dev', service: 'Pre-Wedding Shoot', budget: 45000, date: '2026-08-20', location: 'Nandi Hills, Bangalore', guests: 5, note: 'Need cinematic high-FPS videography.' },
+    { id: 'br2', customer: 'Rohan Mehta', service: 'Half-day Portrait Session', budget: 15000, date: '2026-09-02', location: 'Studio Session, Bangalore', guests: 2, note: 'Professional corporate branding portfolio.' },
+    { id: 'br3', customer: 'Meera Sen', service: 'Engagement Photography', budget: 60000, date: '2026-09-10', location: 'ITC Windsor, Bangalore', guests: 150, note: 'Require standard traditional plus candid coverage.' }
   ]);
-  const [replyIndex, setReplyIndex] = useState<number | null>(null);
-  const [replyText, setReplyText] = useState('');
+
+  // Selected booking for detailed view modal
+  const [selectedBooking, setSelectedBooking] = useState<BookingWithVendor | null>(null);
+
+  // Availability state
+  const [availability, setAvailability] = useState<Record<string, boolean>>({
+    '2026-08-10': false,
+    '2026-08-12': false,
+    '2026-08-15': false,
+    '2026-08-20': true,
+    '2026-08-25': false,
+  });
+  const [availabilityStatus, setAvailabilityStatus] = useState(true); // Toggle status
+
+  // Portfolio state
+  const [portfolio, setPortfolio] = useState([
+    'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1469371670807-013ccf25f16a?auto=format&fit=crop&q=80&w=800'
+  ]);
+
+  // Services / Packages state
+  const [services, setServices] = useState<VendorService[]>([
+    { id: 'pkg1', vendor_id: 'mock-vendor-id', title: 'Wedding Premium', description: 'Complete wedding day coverage including candid, traditional, and 4K video teaser.', price: 120000, duration: 'Full Day', includes: ['2 Candid Photographers', '1 Traditional Videographer', '4K Cinematic Teaser (3-5 min)', 'Digital Album containing 300+ edited shots', 'Complimentary Drone session'] },
+    { id: 'pkg2', vendor_id: 'mock-vendor-id', title: 'Corporate Branding', description: 'Professional headshots, event coverage, and group portraits with fast delivery.', price: 45000, duration: '6 Hours', includes: ['1 Lead Photographer', 'Professional studio light setup', '50 Retouched High-res portraits', 'All raw files delivered via secure link'] },
+    { id: 'pkg3', vendor_id: 'mock-vendor-id', title: 'Birthday & Anniversary', description: 'Fun candid shoot covering cake cutting, guests interactions, and decor details.', price: 25000, duration: '4 Hours', includes: ['1 Candid Photographer', 'Highlight Reel (1 min)', '100 Edited digital photos', 'Fast 48-hour delivery'] }
+  ]);
+  const [showPackageForm, setShowPackageForm] = useState(false);
+  const [packageForm, setPackageForm] = useState({ title: '', description: '', price: '', duration: '', includes: '' });
+
+  // Reviews state
   const [reviewsList, setReviewsList] = useState([
-    { id: 1, author: 'Rahul', rating: 5, comment: 'Excellent work, captured our moments perfectly!', event: 'Wedding', reply: '' },
-    { id: 2, author: 'Sneha', rating: 5, comment: 'Very professional. Highly recommended!', event: 'Birthday', reply: '' },
-    { id: 3, author: 'Anjali', rating: 4.8, comment: 'Loved the candid shots. Great service.', event: 'Pre-Wedding', reply: '' },
-    { id: 4, author: 'Karan', rating: 5, comment: 'Brilliant lighting and creative direction.', event: 'Corporate', reply: '' },
-    { id: 5, author: 'Pooja', rating: 5, comment: 'Absolutely stunning album. Thank you!', event: 'Reception', reply: '' }
+    { id: 1, author: 'Rahul Deshmukh', rating: 5, comment: 'Excellent work, captured our moments perfectly! The team was extremely patient and polite during our long wedding rituals.', event: 'Wedding', date: '2026-07-28', reply: '', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=100' },
+    { id: 2, author: 'Sneha Hegde', rating: 5, comment: 'Very professional crew. Delivered the "sneak peek" album within 24 hours just as promised! Absolute stunners.', event: 'Birthday', date: '2026-07-15', reply: 'Thank you Sneha! It was a delight capturing your little one\'s birthday party.', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100' },
+    { id: 3, author: 'Anjali Sharma', rating: 4.8, comment: 'Loved the candid shots. The lighting was gorgeous, and the post-processing edits feel so clean and natural.', event: 'Pre-Wedding', date: '2026-07-02', reply: '', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=100' }
   ]);
-  const [blockedDates, setBlockedDates] = useState<string[]>(['2026-08-10', '2026-08-12']);
+  const [activeReplyId, setActiveReplyId] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState('');
 
-  useEffect(() => {
-    if (!user) return;
-    const fetchNotifications = async () => {
-      let dbNotifs: any[] = [];
-      try {
-        const { data } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        if (data) dbNotifs = data;
-      } catch (err) {
-        console.warn('Supabase notifications fetch error:', err);
-      }
+  // Chat/Messages state
+  const [selectedChatUser, setSelectedChatUser] = useState('amit@gmail.com');
+  const [chatUsers, setChatUsers] = useState([
+    { email: 'amit@gmail.com', name: 'Amit Kumar', unread: 2, lastMsg: 'Sure, let\'s lock the Haldi timing for 10 AM.' },
+    { email: 'sneha@yahoo.com', name: 'Sneha Hegde', unread: 0, lastMsg: 'Thanks for the quick album delivery!' },
+    { email: 'vikram@dev.com', name: 'Vikram Dev', unread: 0, lastMsg: 'Can we schedule Nandi Hills at sunrise?' }
+  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { id: 'm1', vendor_id: 'mock-vendor-id', customer_email: 'amit@gmail.com', customer_name: 'Amit Kumar', sender_type: 'customer', message: 'Hello! I wanted to check if you are available on Aug 15 for my wedding.', created_at: new Date(Date.now() - 3600000 * 24).toISOString() },
+    { id: 'm2', vendor_id: 'mock-vendor-id', customer_email: 'amit@gmail.com', customer_name: 'Amit Kumar', sender_type: 'vendor', message: 'Hi Amit, yes we have that slot open! What events are planned for the day?', created_at: new Date(Date.now() - 3600000 * 23).toISOString() },
+    { id: 'm3', vendor_id: 'mock-vendor-id', customer_email: 'amit@gmail.com', customer_name: 'Amit Kumar', sender_type: 'customer', message: 'We have the main muhurtham at 9:00 AM, followed by reception in the evening. Also, we wanted to request a drone shoot.', created_at: new Date(Date.now() - 3600000 * 2).toISOString() },
+    { id: 'm4', vendor_id: 'mock-vendor-id', customer_email: 'amit@gmail.com', customer_name: 'Amit Kumar', sender_type: 'vendor', message: 'Perfect. Drones are included in our Wedding Premium package. I have confirmed your booking reference: FEST-WED-815.', created_at: new Date(Date.now() - 3600000 * 1.5).toISOString() },
+    { id: 'm5', vendor_id: 'mock-vendor-id', customer_email: 'amit@gmail.com', customer_name: 'Amit Kumar', sender_type: 'customer', message: 'Sure, let\'s lock the Haldi timing for 10 AM.', created_at: new Date(Date.now() - 1800000).toISOString() }
+  ]);
+  const [newMessageText, setNewMessageText] = useState('');
 
-      // Load local notifications
-      const localNotifs = JSON.parse(localStorage.getItem('festivo_notifications') || '[]');
-      const vendorNotifs = localNotifs.filter((n: any) => 
-        (primaryVendor && n.vendor_id === primaryVendor.id) || 
-        (primaryVendor && n.vendor_name === primaryVendor.name)
-      );
+  // Deals/Promo state
+  const [deals, setDeals] = useState([
+    { id: 'd1', code: 'FESTIVE10', discount: '10% OFF', description: '10% discount on all Wedding packages.', bookings_applied: 8, expiry: '2026-12-31', active: true },
+    { id: 'd2', code: 'EARLYBIRD5K', discount: '₹5,000 Flat', description: 'Flat ₹5,000 off on booking 3 months in advance.', bookings_applied: 3, expiry: '2026-10-15', active: true },
+    { id: 'd3', code: 'STUDIOSTAR', discount: 'Free Canvas Print', description: 'Complimentary premium canvas print with Corporate listings.', bookings_applied: 12, expiry: '2026-09-30', active: false }
+  ]);
+  const [showDealForm, setShowDealForm] = useState(false);
+  const [dealForm, setDealForm] = useState({ code: '', discount: '', description: '', expiry: '' });
 
-      // Merge and sort
-      const merged = [...dbNotifs, ...vendorNotifs];
-      // Unique by ID
-      const unique = Array.from(new Map(merged.map(n => [n.id, n])).values());
-      // Sort by created_at desc
-      unique.sort((a: any, b: any) => new Date(b.created_at || b.timestamp).getTime() - new Date(a.created_at || a.timestamp).getTime());
-      
-      setNotifications(unique);
-      setUnreadCount(unique.filter((n: any) => !n.is_read && !n.read).length);
-    };
-
-    fetchNotifications();
-  }, [user, primaryVendor, activeTab]);
-
-  const markAsRead = async (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true, read: true } : n));
-    setUnreadCount(c => Math.max(0, c - 1));
-
-    try {
-      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    } catch (err) {
-      console.warn('Supabase mark read error:', err);
-    }
-
-    try {
-      const localNotifs = JSON.parse(localStorage.getItem('festivo_notifications') || '[]');
-      const updated = localNotifs.map((n: any) => n.id === id ? { ...n, read: true } : n);
-      localStorage.setItem('festivo_notifications', JSON.stringify(updated));
-    } catch (err) {
-      console.warn('LocalStorage mark read error:', err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true, read: true })));
-    setUnreadCount(0);
-
-    try {
-      if (user) {
-        await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id);
-      }
-    } catch (err) {
-      console.warn('Supabase mark all read error:', err);
-    }
-
-    try {
-      const localNotifs = JSON.parse(localStorage.getItem('festivo_notifications') || '[]');
-      const updated = localNotifs.map((n: any) => ({ ...n, read: true }));
-      localStorage.setItem('festivo_notifications', JSON.stringify(updated));
-    } catch (err) {
-      console.warn('LocalStorage mark all read error:', err);
-    }
-  };
-
-  // Services tab state
-  const [services, setServices] = useState<VendorService[]>([]);
-  const [showServiceForm, setShowServiceForm] = useState(false);
-  const [serviceForm, setServiceForm] = useState({ title: '', description: '', price: '', duration: '', includes: '' });
-  const [serviceLoading, setServiceLoading] = useState(false);
-
-  // Availability tab state
-  const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({});
-  const [availabilityLoading, setAvailabilityLoading] = useState(false);
-
-  // Chat tab state
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
-  const [newMessage, setNewMessage] = useState('');
-
-  // Profile tab state
-  const [vendorProfile, setVendorProfile] = useState<VendorProfileData | null>(null);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileReviews, setProfileReviews] = useState<any[]>([]);
-  const [profileReviewsLoading, setProfileReviewsLoading] = useState(false);
-  const [profileEditForm, setProfileEditForm] = useState({
-    name: '',
-    category: '',
-    location: '',
-    description: '',
-    capacity: '',
-    tags: '',
-    serviceAreas: '',
-    languages: '',
-    workingDays: '',
-    gst_number: '',
-    pan_number: '',
-    bank_account: '',
-    ifsc: '',
-    instagram: '',
-    facebook: '',
-    website: ''
+  // Settings / Profile Form
+  const [settingsForm, setSettingsForm] = useState({
+    business_name: 'Festivo Premier Studios',
+    bio: 'Award-winning wedding and fashion photographers based in Bangalore. Capturing candid, raw, and cinematic moments for over 6 years with 300+ happy couples.',
+    phone: '+91 98765 43210',
+    location: 'Bangalore, KA',
+    capacity: 'Up to 500 guests',
+    gst_number: '29AAAAA1111A1Z1',
+    pan_number: 'ABCDE1234F',
+    bank_account: '987654321098',
+    ifsc: 'SBIN0001234',
+    instagram: 'https://instagram.com/festivo_studios',
+    facebook: 'https://facebook.com/festivostudios',
+    website: 'https://festivostudios.com'
   });
 
-  const listingsView = useInView<HTMLDivElement>();
+  // Support tickets
+  const [supportTickets, setSupportTickets] = useState([
+    { id: 'TKT-1024', subject: 'Payout delays', category: 'Payments', status: 'Closed', created_at: '2026-07-10' },
+    { id: 'TKT-1090', subject: 'Need to add secondary photographer profile', category: 'Profile Settings', status: 'Open', created_at: '2026-08-01' }
+  ]);
+  const [supportForm, setSupportForm] = useState({ subject: '', category: 'Payments', message: '' });
 
-  useEffect(() => {
-    if (!user) { navigate('/auth'); return; }
-    if (profile && profile.role !== 'vendor') { navigate('/vendors'); return; }
-  }, [user, profile, navigate]);
+  // Calendar State helper
+  const currentMonth = { name: 'August 2026', days: 31, offset: 5 }; // August starts on Sat
 
+  // Fetch real data on mount from Supabase
   useEffect(() => {
-    if (!loading && !primaryVendor) {
-      navigate('/vendor-registration');
+    if (!user) {
+      // Setup finished loading even with mocks
+      setLoading(false);
+      return;
     }
-  }, [loading, primaryVendor, navigate]);
-
-  useEffect(() => {
-    if (!user) return;
 
     const fetchData = async () => {
-       const { data: vendorData } = await supabase
-        .from('vendors')
-        .select('*')
-        .limit(30);
- 
-       const localApproved: Vendor[] = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
-       const localPending: Vendor[] = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
-       const merged = [...(vendorData ?? []), ...localApproved, ...localPending];
-       const unique = Array.from(new Map(merged.map(v => [v.slug || v.name, v])).values());
-       const vendorList = sanitizeVendors(unique);
-       
-       // Filter by logged-in user's email
-       const userVendorList = vendorList.filter(v => 
-         v.details?.email?.toLowerCase() === user.email?.toLowerCase()
-       );
-       
-       setVendors(userVendorList);
+      try {
+        // Fetch vendors registered under current user email
+        const { data: vendorData, error: vErr } = await supabase
+          .from('vendors')
+          .select('*');
 
-       if (userVendorList.length > 0) {
-         const ids = userVendorList.map(v => v.id);
-         const { data: bookingData } = await supabase
-           .from('bookings')
-           .select('*')
-           .in('vendor_id', ids)
-           .order('created_at', { ascending: false })
-           .limit(20);
+        if (!vErr && vendorData && vendorData.length > 0) {
+          const sanitized = sanitizeVendors(vendorData);
+          // Filter by logged-in user email
+          const matched = sanitized.filter(
+            v => v.details?.email?.toLowerCase() === user.email?.toLowerCase()
+          );
+          if (matched.length > 0) {
+            setVendors(matched);
+            
+            // Sync settings form
+            const activeVendor = matched[0];
+            setSettingsForm(prev => ({
+              ...prev,
+              business_name: activeVendor.name || prev.business_name,
+              bio: activeVendor.description || prev.bio,
+              location: activeVendor.location || prev.location,
+              capacity: activeVendor.capacity || prev.capacity,
+              phone: activeVendor.details?.phone || prev.phone,
+              instagram: activeVendor.details?.instagram || prev.instagram,
+              facebook: activeVendor.details?.facebook || prev.facebook,
+              website: activeVendor.details?.website || prev.website,
+            }));
 
-         if (bookingData) {
-           setBookings(bookingData.map(b => ({
-             ...b,
-             vendor_name: userVendorList.find(v => v.id === b.vendor_id)?.name,
-           })));
-         }
-       } else {
-         setBookings([]);
-         setBookingRequests([]);
-         setReviewsList([]);
-         setBlockedDates([]);
-       }
+            // Fetch bookings
+            const { data: bookingData } = await supabase
+              .from('bookings')
+              .select('*')
+              .eq('vendor_id', activeVendor.id)
+              .order('created_at', { ascending: false });
 
-       setLoading(false);
+            if (bookingData && bookingData.length > 0) {
+              setBookings(bookingData.map((b: any) => ({
+                ...b,
+                vendor_name: activeVendor.name
+              })));
+            }
+
+            // Fetch services
+            const { data: servicesData } = await supabase
+              .from('vendor_services')
+              .select('*')
+              .eq('vendor_id', activeVendor.id);
+            if (servicesData && servicesData.length > 0) {
+              setServices(servicesData as VendorService[]);
+            }
+
+            // Fetch reviews
+            const { data: reviewsData } = await supabase
+              .from('reviews')
+              .select('*')
+              .eq('vendor_id', activeVendor.id);
+            if (reviewsData && reviewsData.length > 0) {
+              setReviewsList(reviewsData.map((r: any, index: number) => ({
+                id: r.id || index,
+                author: r.customer_name || 'Happy Customer',
+                rating: r.rating || 5,
+                comment: r.comment || '',
+                event: r.event_type || 'Event',
+                date: r.created_at ? r.created_at.split('T')[0] : '2026-07-02',
+                reply: r.reply || '',
+                avatar: `https://images.unsplash.com/photo-${1500000000000 + index}?auto=format&fit=crop&q=80&w=100`
+              })));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Error loading real Supabase data, falling back to mocks:', err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();
   }, [user]);
 
-  // Fetch services when tab opens
-  useEffect(() => {
-    if (activeTab !== 'services' || !primaryVendor) return;
-    const fetchServices = async () => {
-      const { data } = await supabase
-        .from('vendor_services')
-        .select('*')
-        .eq('vendor_id', primaryVendor.id);
-      if (data) setServices(data as VendorService[]);
-    };
-    fetchServices();
-  }, [activeTab, primaryVendor]);
-
-  // Fetch availability when tab opens
-  useEffect(() => {
-    if (activeTab !== 'availability' || !primaryVendor) return;
-    const fetchAvailability = async () => {
-      setAvailabilityLoading(true);
-      const { data } = await supabase
-        .from('vendor_availability')
-        .select('*')
-        .eq('vendor_id', primaryVendor.id);
-      if (data) {
-        const map: Record<string, boolean> = {};
-        data.forEach((a: { date: string; is_available: boolean }) => {
-          map[a.date] = a.is_available;
-        });
-        setAvailabilityMap(map);
-      }
-      setAvailabilityLoading(false);
-    };
-    fetchAvailability();
-  }, [activeTab, primaryVendor]);
-
-  // Fetch chat messages when tab opens
-  useEffect(() => {
-    if (activeTab !== 'chat' || !primaryVendor) return;
-    const fetchMessages = async () => {
-      const { data } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('vendor_id', primaryVendor.id)
-        .order('created_at', { ascending: true });
-      if (data) {
-        setMessages(data as ChatMessage[]);
-        if (data.length > 0 && !selectedCustomer) {
-          setSelectedCustomer((data[0] as ChatMessage).customer_email);
-        }
-      }
-    };
-    fetchMessages();
-  }, [activeTab, primaryVendor, selectedCustomer]);
-
-  // Fetch vendor profile when tab opens
-  useEffect(() => {
-    if (activeTab !== 'profile' || !primaryVendor || !user) return;
-    const fetchProfile = async () => {
-      let data = null;
-      try {
-        const { data: profileData, error } = await supabase
-          .from('vendor_profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (!error && profileData) {
-          data = profileData;
-        } else {
-          // Fallback by vendor_id
-          const { data: fallbackData } = await supabase
-            .from('vendor_profiles')
-            .select('*')
-            .eq('vendor_id', primaryVendor.id)
-            .maybeSingle();
-          if (fallbackData) data = fallbackData;
-        }
-      } catch (err) {
-        console.warn('Profile fetch error, using defaults:', err);
-      }
-      if (data) {
-        setVendorProfile(data as VendorProfileData);
-      } else {
-        setVendorProfile({
-          vendor_id: primaryVendor.id,
-          business_name: primaryVendor.name || '',
-          bio: primaryVendor.description || '',
-          gst_number: '',
-          pan_number: '',
-          bank_account: '',
-          ifsc: '',
-          instagram: primaryVendor.details?.instagram || '',
-          facebook: primaryVendor.details?.facebook || '',
-          website: primaryVendor.details?.website || '',
-        });
-      }
-    };
-    fetchProfile();
-  }, [activeTab, primaryVendor, user]);
-
-  // Fetch profile reviews when tab opens
-  useEffect(() => {
-    if (activeTab !== 'profile' || !primaryVendor) return;
-    const fetchReviews = async () => {
-      setProfileReviewsLoading(true);
-      try {
-        const { data } = await supabase
-          .from('reviews')
-          .select('*')
-          .eq('vendor_id', primaryVendor.id)
-          .order('created_at', { ascending: false });
-        if (data) {
-          setProfileReviews(data);
-        }
-      } catch (err) {
-        console.warn('Reviews fetch error:', err);
-      }
-      setProfileReviewsLoading(false);
-    };
-    fetchReviews();
-  }, [activeTab, primaryVendor]);
-
-  // Synchronize form values with vendor and profile data
-  useEffect(() => {
-    if (primaryVendor) {
-      setProfileEditForm({
-        name: primaryVendor.name || '',
-        category: primaryVendor.category || '',
-        location: primaryVendor.location || '',
-        description: primaryVendor.description || '',
-        capacity: primaryVendor.capacity || '',
-        tags: (primaryVendor.tags || []).join(', '),
-        serviceAreas: (primaryVendor.details?.serviceAreas || [primaryVendor.location || '']).join(', '),
-        languages: (primaryVendor.details?.languages || ['English']).join(', '),
-        workingDays: (primaryVendor.details?.workingDays || ['Sat', 'Sun']).join(', '),
-        gst_number: vendorProfile?.gst_number || '',
-        pan_number: vendorProfile?.pan_number || '',
-        bank_account: vendorProfile?.bank_account || '',
-        ifsc: vendorProfile?.ifsc || '',
-        instagram: vendorProfile?.instagram || primaryVendor.details?.instagram || '',
-        facebook: vendorProfile?.facebook || '',
-        website: vendorProfile?.website || ''
-      });
-    }
-  }, [primaryVendor, vendorProfile]);
-
-  // Services handlers
-  const handleAddService = async () => {
-    if (!primaryVendor || !serviceForm.title) return;
-    setServiceLoading(true);
-    const { data, error } = await supabase
-      .from('vendor_services')
-      .insert({
-        vendor_id: primaryVendor.id,
-        title: serviceForm.title,
-        description: serviceForm.description,
-        price: parseFloat(serviceForm.price) || 0,
-        duration: serviceForm.duration,
-        includes: serviceForm.includes.split(',').map(s => s.trim()).filter(Boolean),
-      })
-      .select()
-      .single();
-    setServiceLoading(false);
-    if (!error && data) {
-      setServices(prev => [...prev, data as VendorService]);
-      setServiceForm({ title: '', description: '', price: '', duration: '', includes: '' });
-      setShowServiceForm(false);
-    }
+  // Display toast helper
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToast({ text, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
-  const handleDeleteService = async (id: string) => {
-    const { error } = await supabase.from('vendor_services').delete().eq('id', id);
-    if (!error) setServices(prev => prev.filter(s => s.id !== id));
-  };
+  // Actions handlers
+  const handleBookingAccept = async (id: string) => {
+    const requestToAccept = bookingRequests.find(r => r.id === id);
+    if (!requestToAccept) return;
 
-  // Availability handler
-  const toggleAvailability = async (date: string) => {
-    if (!primaryVendor) return;
-    const newStatus = !availabilityMap[date];
-    setAvailabilityMap(prev => ({ ...prev, [date]: newStatus }));
-    await supabase
-      .from('vendor_availability')
-      .upsert({ vendor_id: primaryVendor.id, date, is_available: newStatus });
-  };
-
-  // Chat handler
-  const handleSendMessage = async () => {
-    if (!primaryVendor || !newMessage.trim() || !selectedCustomer) return;
-    const msg: ChatMessage = {
+    const newBooking: BookingWithVendor = {
       id: crypto.randomUUID(),
       vendor_id: primaryVendor.id,
-      customer_email: selectedCustomer,
-      sender_type: 'vendor',
-      message: newMessage.trim(),
+      customer_name: requestToAccept.customer,
+      customer_email: `${requestToAccept.customer.toLowerCase().replace(' ', '')}@gmail.com`,
+      customer_phone: '+91 9900112233',
+      event_type: requestToAccept.service,
+      event_date: requestToAccept.date,
+      guests: requestToAccept.guests,
+      special_requests: requestToAccept.note,
+      total_amount: requestToAccept.budget,
+      status: 'confirmed',
+      payment_status: 'unpaid',
+      payment_intent_id: null,
+      booking_ref: `FEST-NEW-${Math.floor(100 + Math.random() * 900)}`,
       created_at: new Date().toISOString(),
+      vendor_name: primaryVendor.name
     };
-    setMessages(prev => [...prev, msg]);
-    setNewMessage('');
-    await supabase.from('chat_messages').insert({
+
+    // Update locally
+    setBookings(prev => [newBooking, ...prev]);
+    setBookingRequests(prev => prev.filter(r => r.id !== id));
+    
+    // Add custom notification
+    setNotifications(prev => [
+      {
+        id: crypto.randomUUID(),
+        title: 'Booking Accepted',
+        message: `You accepted ${requestToAccept.customer}'s request for ${requestToAccept.service}.`,
+        is_read: false,
+        timestamp: new Date().toISOString()
+      },
+      ...prev
+    ]);
+
+    showToast('Booking request accepted successfully!');
+
+    // Update database in background
+    try {
+      await supabase.from('bookings').insert({
+        vendor_id: primaryVendor.id,
+        customer_name: newBooking.customer_name,
+        customer_email: newBooking.customer_email,
+        customer_phone: newBooking.customer_phone,
+        event_type: newBooking.event_type,
+        event_date: newBooking.event_date,
+        guests: newBooking.guests,
+        special_requests: newBooking.special_requests,
+        total_amount: newBooking.total_amount,
+        status: 'confirmed',
+        payment_status: 'unpaid',
+        booking_ref: newBooking.booking_ref
+      });
+    } catch (err) {
+      console.warn('Supabase booking insert error (expected in mock):', err);
+    }
+  };
+
+  const handleBookingReject = (id: string) => {
+    const req = bookingRequests.find(r => r.id === id);
+    if (!req) return;
+    setBookingRequests(prev => prev.filter(r => r.id !== id));
+    showToast('Booking request declined.', 'error');
+  };
+
+  const handleToggleAvailability = () => {
+    const nextStatus = !availabilityStatus;
+    setAvailabilityStatus(nextStatus);
+    showToast(`Business status updated to ${nextStatus ? 'Available' : 'Unavailable'}`);
+  };
+
+  const handleToggleDateAvailability = (dateStr: string) => {
+    setAvailability(prev => ({
+      ...prev,
+      [dateStr]: !prev[dateStr]
+    }));
+    showToast(`Availability toggled for ${dateStr}`);
+  };
+
+  const handleSendMessage = () => {
+    if (!newMessageText.trim()) return;
+
+    const newMsg: ChatMessage = {
+      id: crypto.randomUUID(),
       vendor_id: primaryVendor.id,
-      customer_email: selectedCustomer,
+      customer_email: selectedChatUser,
       sender_type: 'vendor',
-      message: msg.message,
-    });
-  };
-
-  // Profile save handler
-  const handleSaveProfile = async () => {
-    if (!primaryVendor) return;
-    setSavingProfile(true);
-
-    const updatedTags = profileEditForm.tags.split(',').map(t => t.trim()).filter(Boolean);
-    const updatedServiceAreas = profileEditForm.serviceAreas.split(',').map(t => t.trim()).filter(Boolean);
-    const updatedLanguages = profileEditForm.languages.split(',').map(t => t.trim()).filter(Boolean);
-    const updatedWorkingDays = profileEditForm.workingDays.split(',').map(t => t.trim()).filter(Boolean);
-
-    const updatedVendor = {
-      ...primaryVendor,
-      name: profileEditForm.name,
-      category: profileEditForm.category,
-      location: profileEditForm.location,
-      description: profileEditForm.description,
-      capacity: profileEditForm.capacity,
-      tags: updatedTags,
-      details: {
-        ...primaryVendor.details,
-        serviceAreas: updatedServiceAreas,
-        languages: updatedLanguages,
-        workingDays: updatedWorkingDays,
-        instagram: profileEditForm.instagram,
-        facebook: profileEditForm.facebook,
-        website: profileEditForm.website,
-      }
+      message: newMessageText.trim(),
+      created_at: new Date().toISOString()
     };
 
-    // Update local state
-    setVendors(prev => prev.map(v => v.id === primaryVendor.id ? updatedVendor : v));
+    setMessages(prev => [...prev, newMsg]);
+    
+    // Update last message in sidebar list
+    setChatUsers(prev => prev.map(u => 
+      u.email === selectedChatUser ? { ...u, lastMsg: newMessageText.trim() } : u
+    ));
 
-    // Update local storage approved and pending lists
-    try {
-      const localApproved: Vendor[] = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
-      const localPending: Vendor[] = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
-      
-      const newApproved = localApproved.map(v => v.id === primaryVendor.id ? updatedVendor : v);
-      const newPending = localPending.map(v => v.id === primaryVendor.id ? updatedVendor : v);
-      
-      localStorage.setItem('festivo_approved_vendors', JSON.stringify(newApproved));
-      localStorage.setItem('festivo_pending_vendors', JSON.stringify(newPending));
-    } catch (err) {
-      console.warn('LocalStorage save error:', err);
-    }
+    setNewMessageText('');
 
-    // Update vendors table in Supabase
-    try {
-      await supabase.from('vendors').update({
-        name: profileEditForm.name,
-        category: profileEditForm.category,
-        location: profileEditForm.location,
-        description: profileEditForm.description,
-        capacity: profileEditForm.capacity,
-        tags: updatedTags,
-        details: updatedVendor.details
-      }).eq('id', primaryVendor.id);
-    } catch (err) {
-      console.warn('Supabase vendors update error:', err);
-    }
-
-    // Update/upsert vendor_profiles table in Supabase
-    try {
-      if (user) {
-        const profilePayload = {
-          user_id: user.id,
-          business_name: profileEditForm.name,
-          bio: profileEditForm.description,
-          gst_number: profileEditForm.gst_number,
-          pan_number: profileEditForm.pan_number,
-          bank_account: profileEditForm.bank_account,
-          bank_ifsc: profileEditForm.ifsc,
-          social_instagram: profileEditForm.instagram,
-          social_facebook: profileEditForm.facebook,
-          social_website: profileEditForm.website,
-        };
-        await supabase.from('vendor_profiles').upsert(profilePayload);
-      }
-    } catch (err) {
-      console.warn('Supabase vendor_profiles upsert error:', err);
-    }
-
-    setSavingProfile(false);
-    setIsEditingProfile(false);
+    // Mock automatic customer reply in 2 seconds
+    setTimeout(() => {
+      const replyMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        vendor_id: primaryVendor.id,
+        customer_email: selectedChatUser,
+        sender_type: 'customer',
+        message: `Thanks for the response! Let me discuss this with my family and get back to you soon.`,
+        created_at: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, replyMsg]);
+      setChatUsers(prev => prev.map(u => 
+        u.email === selectedChatUser ? { ...u, lastMsg: replyMsg.message, unread: u.email === selectedChatUser ? 0 : u.unread + 1 } : u
+      ));
+    }, 2000);
   };
 
-
-
-
-  const statusBadge = (status: string) => {
-    if (status === 'confirmed') return <span className="flex items-center gap-1 text-xs font-bold text-sage-700 bg-sage-100 px-2 py-1 rounded-full"><CheckCircle2 className="w-3 h-3" /> Confirmed</span>;
-    if (status === 'pending') return <span className="flex items-center gap-1 text-xs font-bold text-gold-700 bg-gold-100 px-2 py-1 rounded-full"><Clock className="w-3 h-3" /> Pending</span>;
-    return <span className="flex items-center gap-1 text-xs font-bold text-cream-800 bg-cream-200 px-2 py-1 rounded-full"><XCircle className="w-3 h-3" /> Cancelled</span>;
-  };
-
-  const updateBookingStatus = async (bookingId: string, status: 'confirmed' | 'cancelled') => {
-    setActionLoading(bookingId);
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status })
-      .eq('id', bookingId);
-    setActionLoading(null);
-    if (error) {
-      setActionMsg({ id: bookingId, text: `Failed to ${status === 'confirmed' ? 'accept' : 'reject'} booking`, type: 'error' });
-    } else {
-      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
-      setActionMsg({ id: bookingId, text: status === 'confirmed' ? 'Booking accepted ✓' : 'Booking rejected', type: 'success' });
+  const handleAddPackage = () => {
+    if (!packageForm.title || !packageForm.price) {
+      showToast('Please fill out the package title and price.', 'error');
+      return;
     }
-    setTimeout(() => setActionMsg(null), 3000);
-  };
 
-  // Earnings calculations
-  const paidBookings = bookings.filter(b => b.payment_status === 'paid');
-  const totalEarnings = paidBookings.reduce((s, b) => s + b.total_amount, 0);
-  const thisMonthEarnings = paidBookings.filter(b => {
-    const d = new Date(b.created_at);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).reduce((s, b) => s + b.total_amount, 0);
-  const pendingPayout = paidBookings.filter(b => b.status === 'confirmed').reduce((s, b) => s + b.total_amount, 0);
-  const commissionPaid = Math.round(totalEarnings * 0.15);
-
-  // Monthly earnings for last 6 months
-  const monthlyEarnings = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (5 - i));
-    const monthBookings = paidBookings.filter(b => {
-      const bd = new Date(b.created_at);
-      return bd.getMonth() === d.getMonth() && bd.getFullYear() === d.getFullYear();
-    });
-    return {
-      label: d.toLocaleDateString('en-IN', { month: 'short' }),
-      amount: monthBookings.reduce((s, b) => s + b.total_amount, 0),
+    const newService: VendorService = {
+      id: crypto.randomUUID(),
+      vendor_id: primaryVendor.id,
+      title: packageForm.title,
+      description: packageForm.description,
+      price: parseFloat(packageForm.price),
+      duration: packageForm.duration || 'Full Day',
+      includes: packageForm.includes.split(',').map(i => i.trim()).filter(Boolean)
     };
+
+    setServices(prev => [...prev, newService]);
+    setPackageForm({ title: '', description: '', price: '', duration: '', includes: '' });
+    setShowPackageForm(false);
+    showToast('Service package added successfully!');
+  };
+
+  const handleDeletePackage = (id: string) => {
+    setServices(prev => prev.filter(s => s.id !== id));
+    showToast('Service package deleted.', 'error');
+  };
+
+  const handleReviewReply = (reviewId: number) => {
+    if (!replyText.trim()) return;
+
+    setReviewsList(prev => prev.map(r => 
+      r.id === reviewId ? { ...r, reply: replyText.trim() } : r
+    ));
+    setReplyText('');
+    setActiveReplyId(null);
+    showToast('Reply posted successfully!');
+  };
+
+  const handleAddDeal = () => {
+    if (!dealForm.code || !dealForm.discount) {
+      showToast('Please enter both discount code and discount rate.', 'error');
+      return;
+    }
+
+    const newDeal = {
+      id: crypto.randomUUID(),
+      code: dealForm.code.toUpperCase(),
+      discount: dealForm.discount,
+      description: dealForm.description || 'Promotional coupon code.',
+      bookings_applied: 0,
+      expiry: dealForm.expiry || '2026-12-31',
+      active: true
+    };
+
+    setDeals(prev => [newDeal, ...prev]);
+    setDealForm({ code: '', discount: '', description: '', expiry: '' });
+    setShowDealForm(false);
+    showToast('Promotional deal created!');
+  };
+
+  const handleToggleDealStatus = (id: string) => {
+    setDeals(prev => prev.map(d => 
+      d.id === id ? { ...d, active: !d.active } : d
+    ));
+    showToast('Promo code status toggled.');
+  };
+
+  const handleSaveSettings = () => {
+    // Update local settings state simulation
+    showToast('Vendor profile updated successfully!');
+  };
+
+  const handleAddSupportTicket = () => {
+    if (!supportForm.subject || !supportForm.message) {
+      showToast('Please enter subject and message.', 'error');
+      return;
+    }
+
+    const newTicket = {
+      id: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
+      subject: supportForm.subject,
+      category: supportForm.category,
+      status: 'Open',
+      created_at: new Date().toISOString().split('T')[0]
+    };
+
+    setSupportTickets(prev => [newTicket, ...prev]);
+    setSupportForm({ subject: '', category: 'Payments', message: '' });
+    showToast('Support ticket registered. Our team will contact you.');
+  };
+
+  const handleUploadPortfolio = () => {
+    const urls = [
+      'https://images.unsplash.com/photo-1532712938310-34cb3982ef74?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1546032996-6dfacbaccd36?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&q=80&w=800'
+    ];
+    // Random select
+    const randomUrl = urls[Math.floor(Math.random() * urls.length)];
+    setPortfolio(prev => [...prev, randomUrl]);
+    showToast('New image uploaded to your portfolio gallery!');
+  };
+
+  const handleMarkNotificationRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+  };
+
+  const handleMarkAllNotificationsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    showToast('All notifications marked as read.');
+  };
+
+  // Sidebar items config
+  const sidebarItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: Building2 },
+    { id: 'bookings', label: 'Bookings', icon: Calendar },
+    { id: 'calendar', label: 'Calendar', icon: Clock },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: chatUsers.filter(u => u.unread > 0).length },
+    { id: 'portfolio', label: 'Portfolio', icon: ImageIcon },
+    { id: 'packages', label: 'Packages', icon: Package },
+    { id: 'reviews', label: 'Reviews', icon: Star },
+    { id: 'earnings', label: 'Earnings', icon: DollarSign },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: 'deals', label: 'Deals', icon: Percent },
+    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'support', label: 'Support', icon: HelpCircle },
+  ];
+
+  // Inline Registration Form States
+  const [showRegForm, setShowRegForm] = useState(false);
+  const [regStep, setRegStep] = useState(1);
+  const [regError, setRegError] = useState('');
+  const [regSubmitting, setRegSubmitting] = useState(false);
+
+  // Step 1: Account Information
+  const [regEmail, setRegEmail] = useState(user?.email || '');
+  const [regPhone, setRegPhone] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regOtpSent, setRegOtpSent] = useState(false);
+  const [regOtpCode, setRegOtpCode] = useState('');
+  const [regOtpVerified, setRegOtpVerified] = useState(false);
+
+  // Step 2: Business Information
+  const [regBusName, setRegBusName] = useState('');
+  const [regOwnerName, setRegOwnerName] = useState(profile?.full_name || '');
+  const [regCategory, setRegCategory] = useState('Wedding Planner');
+  const [regSubcategory, setRegSubcategory] = useState('');
+  const [regDescription, setRegDescription] = useState('');
+
+  // Step 3: Business Address
+  const [regState, setRegState] = useState('');
+  const [regCity, setRegCity] = useState('');
+  const [regAddress, setRegAddress] = useState('');
+  const [regPincode, setRegPincode] = useState('');
+
+  // Step 4: Contact Information
+  const [regContactPerson, setRegContactPerson] = useState('');
+  const [regContactMobile, setRegContactMobile] = useState('');
+  const [regContactAltMobile, setRegContactAltMobile] = useState('');
+  const [regContactEmail, setRegContactEmail] = useState('');
+  const [regWebsite, setRegWebsite] = useState('');
+
+  // Step 5: Service Information
+  const [regServiceAreas, setRegServiceAreas] = useState<string[]>([]);
+  const [regExperience, setRegExperience] = useState('Fresher');
+  const [regTeamSize, setRegTeamSize] = useState('Individual');
+  const [regLanguages, setRegLanguages] = useState<string[]>([]);
+
+  // Step 6: Pricing
+  const [regPriceAmount, setRegPriceAmount] = useState('');
+  const [regPriceType, setRegPriceType] = useState('Per Event');
+
+  // Step 7: Portfolio (Static previews)
+  const [regPortfolioCount, setRegPortfolioCount] = useState(6);
+  const [regVideoCount, setRegVideoCount] = useState(2);
+  const regBrochureUploaded = true;
+
+  // Step 8: KYC Bank & Documents
+  const [regBankHolder, setRegBankHolder] = useState('');
+  const [regBankName, setRegBankName] = useState('');
+  const [regBankAccNum, setRegBankAccNum] = useState('');
+  const [regBankIfsc, setRegBankIfsc] = useState('');
+
+  // Step 9: Social handles
+  const [regInsta, setRegInsta] = useState('');
+  const [regFb, setRegFb] = useState('');
+  const [regYt, setRegYt] = useState('');
+  const [regLi, setRegLi] = useState('');
+  const [regTw, setRegTw] = useState('');
+
+  // Step 10: Availability
+  const [regWorkingDays, setRegWorkingDays] = useState<string[]>(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
+  const [regWorkingStart, setRegWorkingStart] = useState('09:00');
+  const [regWorkingEnd, setRegWorkingEnd] = useState('18:00');
+
+  // Step 11: Policies & Terms
+  const [regConfirmCorrect, setRegConfirmCorrect] = useState(false);
+  const [regAgreeTerms, setRegAgreeTerms] = useState(false);
+  const [regAgreePrivacy, setRegAgreePrivacy] = useState(false);
+
+  // KYC Verification Lock states
+  const [kycStatus, setKycStatus] = useState(() => {
+    const email = user?.email?.toLowerCase();
+    if (!email) return 'Not Uploaded';
+    if (email === 'vendor@festivo.com') return 'Approved';
+    return localStorage.getItem(`festivo_kyc_status_${email}`) || 'Not Uploaded';
   });
-  const maxEarning = Math.max(...monthlyEarnings.map(m => m.amount), 1);
 
-  // Analytics calculations
-  const totalViews = vendors.reduce((s, v) => s + (v.reviews || 0) * 37, 0);
-  const conversionRate = bookings.length && totalViews ? ((bookings.length / totalViews) * 100).toFixed(1) : '0.0';
-  const avgOrderValue = bookings.length ? Math.round(bookings.reduce((s, b) => s + b.total_amount, 0) / bookings.length) : 0;
-  const repeatCustomers = new Set(bookings.map(b => b.customer_email)).size;
-  const totalCustomers = bookings.length;
-  const repeatRate = totalCustomers ? Math.round(((totalCustomers - repeatCustomers) / totalCustomers) * 100) : 0;
-
-  // Category distribution
-  const categoryCounts = vendors.reduce((acc, v) => {
-    acc[v.category] = (acc[v.category] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  const categoryEntries = Object.entries(categoryCounts);
-  const categoryTotal = categoryEntries.reduce((s, [, c]) => s + c, 0) || 1;
-  const categoryColors = ['bg-sage-500', 'bg-gold-500', 'bg-cream-600', 'bg-sage-700', 'bg-gold-600', 'bg-cream-800'];
-  const categoryPercents = categoryEntries.map(([cat, count], i) => ({
-    cat, count, color: categoryColors[i % categoryColors.length], pct: (count / categoryTotal) * 100,
-  }));
-  const pieGradient = categoryPercents.map((c, i) => {
-    const prev = categoryPercents.slice(0, i).reduce((s, p) => s + p.pct, 0);
-    const colorMap = ['#5d8560', '#f59e0b', '#c19350', '#385639', '#d97706', '#846339'];
-    return `${colorMap[i % colorMap.length]} ${prev}% ${prev + c.pct}%`;
-  }).join(', ');
-
-  // Top listings by reviews (proxy for views/bookings)
-  const topListings = [...vendors].sort((a, b) => b.reviews - a.reviews).slice(0, 5).map(v => ({
-    name: v.name, category: v.category, views: (v.reviews || 0) * 37, bookings: Math.floor(v.reviews * 0.18), rating: v.rating,
-  }));
-
-  // Customer satisfaction gauge
-  const avgSatisfaction = vendors.length ? vendors.reduce((s, v) => s + v.rating, 0) / vendors.length : 0;
-  const satisfactionPct = (avgSatisfaction / 5) * 100;
-
-  const isApproved = primaryVendor?.verified;
+  const kycUploaded = kycStatus === 'Approved';
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-sage-200 border-t-sage-600 rounded-full animate-spin" />
+      <div className="min-h-screen bg-cream-50 flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-sage-200 border-t-sage-600 rounded-full animate-spin mb-4" />
+        <p className="font-display font-bold text-sage-900 text-sm animate-pulse">Loading Festivo Dashboard...</p>
       </div>
     );
   }
 
-  if (!primaryVendor) {
-    return (
-      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-sage-200 border-t-sage-600 rounded-full animate-spin" />
-      </div>
+  // Handle pending review check if demoMode is disabled and primaryVendor verified is false
+  const getActiveStatus = () => {
+    if (demoMode) return 'Approved';
+    
+    // Look up in local storage pending list
+    const pendingList = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
+    const matchedPending = pendingList.find((v: any) => 
+      v.details?.email?.toLowerCase() === user?.email?.toLowerCase()
     );
-  }
+    if (matchedPending) {
+      return matchedPending.details?.status || 'Pending Verification';
+    }
 
-  if (!isApproved) {
+    // Look up in approved list
+    const approvedList = JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]');
+    const matchedApproved = approvedList.find((v: any) => 
+      v.details?.email?.toLowerCase() === user?.email?.toLowerCase()
+    );
+    if (matchedApproved) {
+      return 'Approved';
+    }
+
+    // Default fallback check
+    if (user?.email?.toLowerCase() === 'vendor@festivo.com') return 'Approved';
+    return 'Unregistered';
+  };
+
+  const activeStatus = getActiveStatus();
+
+  // Onboarding hasListing check
+  const hasListing = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]').some((v: any) => 
+    v.details?.email?.toLowerCase() === user?.email?.toLowerCase()
+  ) || JSON.parse(localStorage.getItem('festivo_approved_vendors') || '[]').some((v: any) => 
+    v.details?.email?.toLowerCase() === user?.email?.toLowerCase()
+  );
+
+  // Documents re-upload handlers
+  const handleResubmitDocs = () => {
+    const pendingList = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
+    const updated = pendingList.map((v: any) => {
+      if (v.details?.email?.toLowerCase() === user?.email?.toLowerCase()) {
+        return {
+          ...v,
+          details: {
+            ...v.details,
+            status: 'Pending Verification'
+          }
+        };
+      }
+      return v;
+    });
+    localStorage.setItem('festivo_pending_vendors', JSON.stringify(updated));
+    showToast('Documents resubmitted successfully!');
+  };
+
+  const handleStartResubmitForm = () => {
+    // Show inline form instead of navigating
+    setShowRegForm(true);
+    setRegStep(1);
+    setRegEmail(user?.email || '');
+  };
+
+  const handleRegNext = () => {
+    if (regStep === 1) {
+      if (!regEmail || !regPhone || !regPassword) {
+        setRegError('Please fill in email, phone, and password.');
+        return;
+      }
+      if (regPassword !== regConfirmPassword) {
+        setRegError('Passwords do not match.');
+        return;
+      }
+      if (!regOtpVerified) {
+        setRegError('Please verify your mobile OTP code.');
+        return;
+      }
+    }
+    if (regStep === 2) {
+      if (!regBusName || !regOwnerName || !regDescription) {
+        setRegError('Business Name, Owner Name, and Description are required.');
+        return;
+      }
+    }
+    if (regStep === 6) {
+      if (!regPriceAmount) {
+        setRegError('Starting price is required.');
+        return;
+      }
+    }
+    if (regStep === 8) {
+      if (!regBankHolder || !regBankAccNum || !regBankIfsc) {
+        setRegError('Please provide Bank Holder Name, Number, and IFSC.');
+        return;
+      }
+    }
+
+    setRegError('');
+    if (regStep < 11) {
+      setRegStep(regStep + 1);
+    }
+  };
+
+  const handleRegBack = () => {
+    setRegError('');
+    if (regStep > 1) {
+      setRegStep(regStep - 1);
+    }
+  };
+
+  const handleRegSendOtp = () => {
+    if (!regPhone) {
+      setRegError('Please input a valid mobile number.');
+      return;
+    }
+    setRegOtpSent(true);
+    setRegError('');
+  };
+
+  const handleRegVerifyOtp = () => {
+    if (regOtpCode === '1234' || regOtpCode.length === 4) {
+      setRegOtpVerified(true);
+      setRegError('');
+    } else {
+      setRegError('Invalid OTP code. Enter any 4-digit code (e.g. 1234).');
+    }
+  };
+
+  const handleToggleRegServiceArea = (area: string) => {
+    if (regServiceAreas.includes(area)) {
+      setRegServiceAreas(regServiceAreas.filter(a => a !== area));
+    } else {
+      setRegServiceAreas([...regServiceAreas, area]);
+    }
+  };
+
+  const handleToggleRegLanguage = (lang: string) => {
+    if (regLanguages.includes(lang)) {
+      setRegLanguages(regLanguages.filter(l => l !== lang));
+    } else {
+      setRegLanguages([...regLanguages, lang]);
+    }
+  };
+
+  const handleToggleRegWorkingDay = (day: string) => {
+    if (regWorkingDays.includes(day)) {
+      setRegWorkingDays(regWorkingDays.filter(d => d !== day));
+    } else {
+      setRegWorkingDays([...regWorkingDays, day]);
+    }
+  };
+
+  const handleRegSubmit = async () => {
+    if (!regConfirmCorrect || !regAgreeTerms || !regAgreePrivacy) {
+      setRegError('You must accept all terms, conditions, and privacy policies.');
+      return;
+    }
+
+    setRegSubmitting(true);
+    setRegError('');
+
+    const vendorId = `VND-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newVendor = {
+      id: vendorId,
+      name: regBusName,
+      category: regCategory,
+      location: `${regCity || 'Bangalore'}, ${regState || 'Karnataka'}`,
+      price_amount: parseFloat(regPriceAmount) || 25000,
+      price_label: 'Starting Package',
+      price_unit: regPriceType.toLowerCase().replace('per ', ''),
+      rating: 5.0,
+      reviews: 0,
+      image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
+      gallery: [
+        'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800'
+      ],
+      tags: [regSubcategory || regCategory, 'Verified', regExperience],
+      description: regDescription,
+      verified: false,
+      badge: 'Pending Review',
+      badge_color: 'bg-gold-500',
+      slug: regBusName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      details: {
+        email: regEmail,
+        phone: regPhone,
+        owner: regOwnerName,
+        address: `${regAddress}, ${regCity}, ${regPincode}`,
+        serviceAreas: regServiceAreas,
+        languages: regLanguages,
+        teamSize: regTeamSize,
+        experience: regExperience,
+        instagram: regInsta,
+        facebook: regFb,
+        youtube: regYt,
+        linkedin: regLi,
+        twitter: regTw,
+        workingDays: regWorkingDays,
+        workingStart: regWorkingStart,
+        workingEnd: regWorkingEnd,
+        bank: {
+          holder: regBankHolder,
+          account: regBankAccNum,
+          ifsc: regBankIfsc,
+          name: regBankName,
+        },
+        kyc: {
+          aadhaarFront: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&q=80&w=200',
+          aadhaarBack: 'https://images.unsplash.com/photo-1606857521015-7f9fcf423740?auto=format&fit=crop&q=80&w=200',
+          pan: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=200',
+          cancelledCheque: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&q=80&w=200',
+        },
+        portfolioCount: regPortfolioCount,
+        videoCount: regVideoCount,
+        brochureUploaded: regBrochureUploaded,
+        registrationDate: new Date().toISOString().split('T')[0],
+        status: 'Pending Verification'
+      }
+    };
+
+    try {
+      const pendingList = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
+      const filtered = pendingList.filter((v: any) => v.details?.email?.toLowerCase() !== regEmail.toLowerCase());
+      localStorage.setItem('festivo_pending_vendors', JSON.stringify([...filtered, newVendor]));
+
+      // Create admin notification
+      const adminNotifications = JSON.parse(localStorage.getItem('festivo_admin_notifications') || '[]');
+      const newAdminNotification = {
+        id: `AN-${Math.floor(100000 + Math.random() * 900000)}`,
+        type: 'new_application',
+        vendorId: newVendor.id,
+        vendorName: newVendor.name,
+        message: `New vendor application submitted by "${newVendor.name}" (${newVendor.category}) in ${newVendor.location}.`,
+        timestamp: new Date().toISOString(),
+        read: false
+      };
+      localStorage.setItem('festivo_admin_notifications', JSON.stringify([newAdminNotification, ...adminNotifications]));
+
+      await supabase.from('vendors').insert({
+        id: newVendor.id,
+        name: newVendor.name,
+        category: newVendor.category,
+        location: newVendor.location,
+        price_amount: newVendor.price_amount,
+        price_label: newVendor.price_label,
+        price_unit: newVendor.price_unit,
+        rating: newVendor.rating,
+        reviews: newVendor.reviews,
+        image: newVendor.image,
+        gallery: newVendor.gallery,
+        tags: newVendor.tags,
+        description: newVendor.description,
+        verified: false,
+        slug: newVendor.slug,
+        details: newVendor.details
+      });
+    } catch (e) {
+      console.warn('Backend sync failed (proceeding with local registration queue):', e);
+    } finally {
+      setRegSubmitting(false);
+      setShowRegForm(false);
+      showToast('Enrollment application submitted successfully!');
+    }
+  };
+
+
+
+  if (activeStatus !== 'Approved') {
+    const matchedVendor = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]').find((v: any) => 
+      v.details?.email?.toLowerCase() === user?.email?.toLowerCase()
+    ) || primaryVendor;
+
+    const rejectionReason = localStorage.getItem(`festivo_reject_reason_${matchedVendor?.id}`) || 'Verification documents could not be matched with registry records.';
+    const requestedDocsList = localStorage.getItem(`festivo_requested_docs_${matchedVendor?.id}`) || 'Aadhaar Card Front copy and Bank Cancelled Cheque proof.';
+
+    const CATEGORIES_LIST = [
+      'Wedding Planner', 'Photographer', 'Videographer', 'Caterer',
+      'Decorator', 'Makeup Artist', 'Venue', 'DJ', 'Entertainment',
+      'Invitation Designer', 'Mehendi Artist', 'Transportation', 'Event Rental'
+    ];
+    const SERVICE_AREAS_OPTIONS = ['Bangalore', 'Hyderabad', 'Chennai', 'Mysore'];
+    const EXPERIENCE_OPTIONS = ['Fresher', '1–2 Years', '3–5 Years', '5–10 Years', '10+ Years'];
+    const TEAM_SIZE_OPTIONS = ['Individual', '2–5 Members', '6–10 Members', '10+'];
+    const LANGUAGES_OPTIONS = ['English', 'Telugu', 'Hindi', 'Kannada', 'Tamil'];
+    const PRICE_TYPES = ['Per Hour', 'Per Day', 'Per Event', 'Package'];
+    const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
     return (
-      <div className="min-h-screen bg-cream-50 flex flex-col justify-between">
-        {/* Minimal Header */}
-        <header className="bg-gradient-to-r from-sage-900 to-sage-800 py-6 text-white shadow-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      <div className="min-h-screen bg-cream-50 flex flex-col justify-between font-body text-dark-800 antialiased">
+        
+        {/* Header */}
+        <header className="bg-gradient-to-r from-sage-900 to-sage-800 py-6 text-white shadow-soft">
+          <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-brand rounded-xl flex items-center justify-center shadow-glow">
                 <Building2 className="w-5 h-5 text-white" />
@@ -746,45 +999,859 @@ export default function VendorDashboard() {
                 <p className="text-sage-200 text-xs">{user?.email}</p>
               </div>
             </div>
-            <button
-              onClick={async () => { await signOut(); navigate('/'); }}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" /> Sign Out
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setDemoMode(true)}
+                className="px-3.5 py-1.5 bg-gold-500 hover:bg-gold-400 text-sage-950 rounded-xl text-xs font-bold transition-all shadow-md"
+              >
+                Bypass (Developer Demo Mode)
+              </button>
+              <button
+                onClick={async () => { await signOut(); navigate('/'); }}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Sign Out
+              </button>
+            </div>
           </div>
         </header>
 
-        {/* Pending Approval Screen */}
-        <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-16 flex flex-col justify-center items-center">
-          <div className="bg-white rounded-3xl p-8 md:p-12 text-center border border-sage-100 shadow-xl w-full max-w-2xl transform transition-all animate-scale-in">
-            <div className="w-20 h-20 bg-amber-50 border border-amber-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-soft">
-              <Clock className="w-10 h-10 text-amber-600 animate-pulse" />
-            </div>
-            
-            <h2 className="font-display text-2xl md:text-3xl font-black text-sage-900 mb-3 tracking-tight">
-              Application Under Review
-            </h2>
-            <p className="text-sage-800 text-sm font-semibold mb-2">
-              Business: {primaryVendor.name}
-            </p>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-full mb-6">
-              Status: Pending Admin Approval
-            </span>
-            <p className="text-dark-500 text-sm md:text-base max-w-lg mx-auto mb-8 leading-relaxed">
-              Your vendor registration application has been received and is currently under review by our administration team. Once approved, your listings will go live on the public directory, and your full analytics dashboard will be unlocked.
-            </p>
+        {/* Status Onboarding / Registration wizard / Review queue */}
+        <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-12 flex flex-col justify-center items-center">
+          
+          {/* OPTION A: RENDER INLINE 11-STEP FORM */}
+          {showRegForm ? (
+            <div className="w-full space-y-6 animate-scale-in">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-xs font-bold text-dark-500 uppercase tracking-widest">
+                  <span>Step {regStep} of 11</span>
+                  <span>{Math.round((regStep / 11) * 100)}% Complete</span>
+                </div>
+                <div className="w-full h-2 bg-cream-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-sage-600 transition-all duration-300"
+                    style={{ width: `${(regStep / 11) * 100}%` }}
+                  />
+                </div>
+              </div>
 
-            <div className="p-4 bg-cream-50/50 rounded-2xl border border-sage-100/30 text-left max-w-md mx-auto">
-              <p className="font-bold text-sage-900 text-xs tracking-wide uppercase">Next Steps</p>
-              <p className="text-dark-500 text-[11px] mt-1 font-medium leading-relaxed">
-                We will verify your submitted documents and credentials. This process typically takes 12 to 24 hours. You will receive an alert inside your portal upon activation.
-              </p>
+              {regError && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-xs font-semibold text-red-800 animate-scale-in">
+                  <AlertCircle className="w-4.5 h-4.5 text-red-650 flex-shrink-0 mt-0.5" />
+                  <p>{regError}</p>
+                </div>
+              )}
+
+              <div className="bg-white border border-dark-100 rounded-3xl p-6 md:p-8 shadow-soft space-y-6 w-full">
+                
+                {/* STEP 1: Account info */}
+                {regStep === 1 && (
+                  <div className="space-y-6 animate-fade-in">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Account Information</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Setup your credentials to activate access.</p>
+                    </div>
+
+                    <div className="space-y-4 text-xs font-semibold text-dark-600">
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400">Business Email Address *</label>
+                        <input
+                          type="email"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                        <div className="md:col-span-2">
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Mobile Number *</label>
+                          <input
+                            type="tel"
+                            placeholder="e.g. 9876543210"
+                            value={regPhone}
+                            onChange={(e) => setRegPhone(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRegSendOtp}
+                          className="h-11 bg-cream-100 hover:bg-cream-200 rounded-xl font-bold transition-all text-[11px]"
+                        >
+                          {regOtpSent ? 'Resend OTP' : 'Send OTP'}
+                        </button>
+                      </div>
+
+                      {regOtpSent && !regOtpVerified && (
+                        <div className="bg-cream-50 border p-4 rounded-xl space-y-2 animate-scale-in">
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Verification OTP *</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              maxLength={4}
+                              placeholder="Code (e.g. 1234)"
+                              value={regOtpCode}
+                              onChange={(e) => setRegOtpCode(e.target.value)}
+                              className="bg-white border rounded-xl px-4 py-2 w-36 text-center tracking-widest outline-none font-bold"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleRegVerifyOtp}
+                              className="bg-sage-600 text-white px-4 rounded-xl font-bold text-[11px]"
+                            >
+                              Verify OTP
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {regOtpVerified && (
+                        <p className="text-emerald-700 font-bold flex items-center gap-1.5">
+                          ✓ Mobile OTP code verified!
+                        </p>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Password *</label>
+                          <input
+                            type="password"
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Confirm Password *</label>
+                          <input
+                            type="password"
+                            value={regConfirmPassword}
+                            onChange={(e) => setRegConfirmPassword(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2: Business Info */}
+                {regStep === 2 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Business Details</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Tell clients about your company.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Business Name *</label>
+                          <input
+                            type="text"
+                            value={regBusName}
+                            onChange={(e) => setRegBusName(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Owner Name *</label>
+                          <input
+                            type="text"
+                            value={regOwnerName}
+                            onChange={(e) => setRegOwnerName(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Business Category *</label>
+                          <select
+                            value={regCategory}
+                            onChange={(e) => setRegCategory(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-bold"
+                          >
+                            {CATEGORIES_LIST.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Subcategory</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Candid Photo"
+                            value={regSubcategory}
+                            onChange={(e) => setRegSubcategory(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400">Description *</label>
+                        <textarea
+                          value={regDescription}
+                          onChange={(e) => setRegDescription(e.target.value)}
+                          rows={4}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 3: Address */}
+                {regStep === 3 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Business Address</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Where is your workspace located?</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Country</label>
+                          <input
+                            type="text"
+                            value="India"
+                            disabled
+                            className="w-full bg-cream-100 border rounded-xl px-4 py-2.5 mt-1.5 outline-none font-bold text-dark-400 cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">State</label>
+                          <input
+                            type="text"
+                            value={regState}
+                            onChange={(e) => setRegState(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">City</label>
+                          <input
+                            type="text"
+                            value={regCity}
+                            onChange={(e) => setRegCity(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400">Complete Address</label>
+                        <input
+                          type="text"
+                          value={regAddress}
+                          onChange={(e) => setRegAddress(e.target.value)}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+
+                      <div className="w-1/2">
+                        <label className="block uppercase text-[10px] font-bold text-dark-400">Pincode</label>
+                        <input
+                          type="text"
+                          value={regPincode}
+                          onChange={(e) => setRegPincode(e.target.value)}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 4: Contact Info */}
+                {regStep === 4 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Contact Information</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Primary coordinates for communication.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400">Contact Person</label>
+                        <input
+                          type="text"
+                          value={regContactPerson}
+                          onChange={(e) => setRegContactPerson(e.target.value)}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Mobile Number</label>
+                          <input
+                            type="tel"
+                            value={regContactMobile}
+                            onChange={(e) => setRegContactMobile(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Alternate Mobile</label>
+                          <input
+                            type="tel"
+                            value={regContactAltMobile}
+                            onChange={(e) => setRegContactAltMobile(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Business Email</label>
+                          <input
+                            type="email"
+                            value={regContactEmail}
+                            onChange={(e) => setRegContactEmail(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Website</label>
+                          <input
+                            type="url"
+                            value={regWebsite}
+                            onChange={(e) => setRegWebsite(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 5: Service Info */}
+                {regStep === 5 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Service Information</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">State your team operational parameters.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400 mb-2">Service Areas</label>
+                        <div className="flex flex-wrap gap-2">
+                          {SERVICE_AREAS_OPTIONS.map(a => {
+                            const act = regServiceAreas.includes(a);
+                            return (
+                              <button
+                                key={a}
+                                type="button"
+                                onClick={() => handleToggleRegServiceArea(a)}
+                                className={`px-4 py-2 rounded-xl border transition-colors text-xs font-bold ${
+                                  act ? 'bg-sage-600 border-sage-600 text-white' : 'bg-cream-50 border-dark-100 text-dark-600'
+                                }`}
+                              >
+                                {a}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Experience</label>
+                          <select
+                            value={regExperience}
+                            onChange={(e) => setRegExperience(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-bold"
+                          >
+                            {EXPERIENCE_OPTIONS.map(exp => (
+                              <option key={exp} value={exp}>{exp}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Team Size</label>
+                          <select
+                            value={regTeamSize}
+                            onChange={(e) => setRegTeamSize(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-bold"
+                          >
+                            {TEAM_SIZE_OPTIONS.map(t => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400 mb-2">Languages Spoken</label>
+                        <div className="flex flex-wrap gap-4 pt-1">
+                          {LANGUAGES_OPTIONS.map(l => (
+                            <label key={l} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={regLanguages.includes(l)}
+                                onChange={() => handleToggleRegLanguage(l)}
+                                className="w-4 h-4 rounded text-sage-600 border-dark-100 focus:ring-sage-100"
+                              />
+                              <span>{l}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 6: Pricing */}
+                {regStep === 6 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Pricing Details</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Specify budget rates to align filters.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400">Starting Price *</label>
+                        <input
+                          type="number"
+                          value={regPriceAmount}
+                          onChange={(e) => setRegPriceAmount(e.target.value)}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400">Price Type</label>
+                        <select
+                          value={regPriceType}
+                          onChange={(e) => setRegPriceType(e.target.value)}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1.5 outline-none font-bold"
+                        >
+                          {PRICE_TYPES.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 7: Portfolio */}
+                {regStep === 7 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Portfolio Assets</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Upload photos and catalog brochure documents.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="p-4 bg-cream-50 border border-dashed text-center rounded-2xl">
+                        <Store className="w-6 h-6 text-sage-600 mx-auto" />
+                        <p className="font-bold mt-1">Logo URL Profile</p>
+                        <p className="text-[10px] text-dark-400 font-semibold mt-1">Ready for review</p>
+                      </div>
+                      <div className="p-4 bg-cream-50 border border-dashed text-center rounded-2xl">
+                        <Camera className="w-6 h-6 text-sage-600 mx-auto" />
+                        <p className="font-bold mt-1">Cover Banner</p>
+                        <p className="text-[10px] text-dark-400 font-semibold mt-1">Ready for review</p>
+                      </div>
+
+                      <div className="p-4 border rounded-xl flex justify-between items-center bg-white">
+                        <span>Portfolio Images (max 20)</span>
+                        <div className="flex gap-1">
+                          <button type="button" onClick={() => setRegPortfolioCount(Math.max(1, regPortfolioCount - 1))} className="w-6 h-6 bg-cream-100 rounded font-bold">-</button>
+                          <span className="w-8 text-center font-bold">{regPortfolioCount}</span>
+                          <button type="button" onClick={() => setRegPortfolioCount(regPortfolioCount + 1)} className="w-6 h-6 bg-cream-100 rounded font-bold">+</button>
+                        </div>
+                      </div>
+                      <div className="p-4 border rounded-xl flex justify-between items-center bg-white">
+                        <span>Video Files (max 5)</span>
+                        <div className="flex gap-1">
+                          <button type="button" onClick={() => setRegVideoCount(Math.max(0, regVideoCount - 1))} className="w-6 h-6 bg-cream-100 rounded font-bold">-</button>
+                          <span className="w-8 text-center font-bold">{regVideoCount}</span>
+                          <button type="button" onClick={() => setRegVideoCount(regVideoCount + 1)} className="w-6 h-6 bg-cream-100 rounded font-bold">+</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 8: Payout Details */}
+                {regStep === 8 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Payout Details</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Please provide your bank details to configure payout distributions.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-3">
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block uppercase text-[10px] font-bold text-dark-400">Holder Name *</label>
+                            <input
+                              type="text"
+                              value={regBankHolder}
+                              onChange={(e) => setRegBankHolder(e.target.value)}
+                              className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                            />
+                          </div>
+                          <div>
+                            <label className="block uppercase text-[10px] font-bold text-dark-400">Bank Name</label>
+                            <input
+                              type="text"
+                              value={regBankName}
+                              onChange={(e) => setRegBankName(e.target.value)}
+                              className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="col-span-2">
+                            <label className="block uppercase text-[10px] font-bold text-dark-400">Account Number *</label>
+                            <input
+                              type="text"
+                              value={regBankAccNum}
+                              onChange={(e) => setRegBankAccNum(e.target.value)}
+                              className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                            />
+                          </div>
+                          <div>
+                            <label className="block uppercase text-[10px] font-bold text-dark-400">IFSC Code *</label>
+                            <input
+                              type="text"
+                              value={regBankIfsc}
+                              onChange={(e) => setRegBankIfsc(e.target.value)}
+                              className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 9: Socials */}
+                {regStep === 9 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Social Media Links</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Provide links to show external portfolio highlights.</p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <input
+                        type="url"
+                        placeholder="Instagram profile link"
+                        value={regInsta}
+                        onChange={(e) => setRegInsta(e.target.value)}
+                        className="w-full bg-cream-50 border rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                      />
+                      <input
+                        type="url"
+                        placeholder="Facebook page link"
+                        value={regFb}
+                        onChange={(e) => setRegFb(e.target.value)}
+                        className="w-full bg-cream-50 border rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                      />
+                      <input
+                        type="url"
+                        placeholder="YouTube channel link"
+                        value={regYt}
+                        onChange={(e) => setRegYt(e.target.value)}
+                        className="w-full bg-cream-50 border rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                      />
+                      <input
+                        type="url"
+                        placeholder="LinkedIn profile link"
+                        value={regLi}
+                        onChange={(e) => setRegLi(e.target.value)}
+                        className="w-full bg-cream-50 border rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                      />
+                      <input
+                        type="url"
+                        placeholder="Twitter profile link"
+                        value={regTw}
+                        onChange={(e) => setRegTw(e.target.value)}
+                        className="w-full bg-cream-50 border rounded-xl px-4 py-2 mt-1 outline-none font-medium"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 10: Availability */}
+                {regStep === 10 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Working Schedule</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Let clients know active hours.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block uppercase text-[10px] font-bold text-dark-400 mb-2">Working Days</label>
+                        <div className="flex flex-wrap gap-3">
+                          {WEEKDAYS.map(day => (
+                            <label key={day} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={regWorkingDays.includes(day)}
+                                onChange={() => handleToggleRegWorkingDay(day)}
+                                className="w-4 h-4 rounded text-sage-600 border-dark-100 focus:ring-sage-100"
+                              />
+                              <span>{day}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-2">
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">Start Time</label>
+                          <input
+                            type="time"
+                            value={regWorkingStart}
+                            onChange={(e) => setRegWorkingStart(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1 outline-none font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block uppercase text-[10px] font-bold text-dark-400">End Time</label>
+                          <input
+                            type="time"
+                            value={regWorkingEnd}
+                            onChange={(e) => setRegWorkingEnd(e.target.value)}
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 mt-1 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 11: Terms */}
+                {regStep === 11 && (
+                  <div className="space-y-6 animate-fade-in text-xs font-semibold text-dark-600">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Terms &amp; Policies</h3>
+                      <p className="text-dark-500 text-xs mt-0.5">Please accept to file application.</p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={regConfirmCorrect}
+                          onChange={(e) => setRegConfirmCorrect(e.target.checked)}
+                          className="w-4 h-4 mt-0.5 text-sage-600 border-dark-100 focus:ring-sage-100"
+                        />
+                        <span>I confirm all provided data is correct.</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={regAgreeTerms}
+                          onChange={(e) => setRegAgreeTerms(e.target.checked)}
+                          className="w-4 h-4 mt-0.5 text-sage-600 border-dark-100 focus:ring-sage-100"
+                        />
+                        <span>I agree to Partner Terms &amp; Conditions.</span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={regAgreePrivacy}
+                          onChange={(e) => setRegAgreePrivacy(e.target.checked)}
+                          className="w-4 h-4 mt-0.5 text-sage-600 border-dark-100 focus:ring-sage-100"
+                        />
+                        <span>I agree to Privacy Policy guidelines.</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions Nav bar */}
+                <div className="flex justify-between items-center border-t pt-4">
+                  {regStep > 1 ? (
+                    <button
+                      type="button"
+                      onClick={handleRegBack}
+                      className="px-4 py-2 border rounded-xl font-bold flex items-center gap-1 hover:bg-cream-50 text-xs transition-colors"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" /> Back
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+
+                  {regStep < 11 ? (
+                    <button
+                      type="button"
+                      onClick={handleRegNext}
+                      className="px-5 py-2.5 bg-gradient-brand text-white rounded-xl font-black text-xs shadow flex items-center gap-1 hover:opacity-95 transition-opacity"
+                    >
+                      Next Step <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRegSubmit}
+                      disabled={regSubmitting}
+                      className="px-6 py-2.5 bg-gradient-brand text-white rounded-xl font-black text-xs shadow hover:opacity-95 transition-opacity"
+                    >
+                      {regSubmitting ? 'Filing Application...' : 'File Application'}
+                    </button>
+                  )}
+                </div>
+
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* OPTION B: UNREGISTERED WELCOME LANDING CARD */}
+              {!hasListing ? (
+                <div className="bg-white rounded-3xl p-8 md:p-12 text-center border border-sage-100 shadow-card w-full max-w-2xl transform transition-all animate-scale-in space-y-6">
+                  <div className="w-16 h-16 bg-sage-50 border border-sage-100 rounded-full flex items-center justify-center mx-auto shadow-soft">
+                    <Store className="w-8 h-8 text-sage-600" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h2 className="font-display text-2xl md:text-3xl font-black text-sage-900 tracking-tight">Welcome to Festivo Partner Network!</h2>
+                    <p className="text-dark-500 text-xs font-semibold">Event Management Platform Marketplace</p>
+                  </div>
+
+                  <p className="text-dark-500 text-sm max-w-lg mx-auto leading-relaxed">
+                    Create your premium vendor listing profile to showcase your portfolio, set calendar availability, define packages, and start receiving booking requests from event planners.
+                  </p>
+
+                  <button
+                    onClick={() => setShowRegForm(true)}
+                    className="w-full h-11 bg-gradient-brand text-white rounded-2xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
+                  >
+                    Begin Listing Profile Registration
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* OPTION C: EXISTING ENROLLMENT OUTCOMES */}
+                  
+                  {/* STATE 1: PENDING VERIFICATION */}
+                  {activeStatus === 'Pending Verification' && (
+                    <div className="bg-white rounded-3xl p-8 md:p-12 text-center border border-sage-100 shadow-card w-full max-w-2xl transform transition-all animate-scale-in space-y-6">
+                      <div className="w-20 h-20 bg-amber-50 border border-amber-100 rounded-full flex items-center justify-center mx-auto shadow-soft">
+                        <Clock className="w-10 h-10 text-amber-655 animate-pulse" />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h2 className="font-display text-2xl md:text-3xl font-black text-sage-900 tracking-tight">
+                          Application Under Review
+                        </h2>
+                        <p className="text-sage-800 text-xs font-bold bg-cream-50 inline-block px-3 py-1 rounded-full border">
+                          Business: {matchedVendor?.name}
+                        </p>
+                      </div>
+
+                      <p className="text-dark-500 text-sm max-w-lg mx-auto leading-relaxed">
+                        Your vendor registration application has been received and is currently in our verification queue. Our admin team is checking your Aadhaar, PAN, and Bank proof details.
+                      </p>
+
+                      {/* Progress Tracker */}
+                      <div className="max-w-md mx-auto p-5 bg-cream-50/50 rounded-2xl border text-left text-xs font-semibold space-y-3">
+                        <p className="font-bold text-sage-900 uppercase tracking-widest text-[9px] mb-1">Verification Steps</p>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-dark-600 flex items-center gap-1">✅ Email Verification</span>
+                          <span className="text-emerald-600 font-bold">Verified</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-dark-600 flex items-center gap-1">✅ Mobile Verification</span>
+                          <span className="text-emerald-600 font-bold">Verified</span>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-dark-100/50 pt-2 mt-2">
+                          <span className="text-dark-700 flex items-center gap-1">⏳ KYC Document Check</span>
+                          <span className="text-amber-600 font-bold animate-pulse">In Review Queue</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STATE 2: DOCUMENTS REQUESTED */}
+                  {activeStatus === 'Documents Requested' && (
+                    <div className="bg-white rounded-3xl p-8 md:p-12 border border-sage-100 shadow-card w-full max-w-2xl transform transition-all animate-scale-in space-y-6">
+                      <div className="text-center space-y-3">
+                        <div className="w-16 h-16 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center mx-auto shadow-soft">
+                          <AlertCircle className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <h2 className="font-display text-2xl font-black text-blue-900 tracking-tight">Additional Documents Requested</h2>
+                        <p className="text-xs text-dark-500 font-bold bg-cream-50 inline-block px-3 py-1 rounded-full border">Action Required</p>
+                      </div>
+
+                      <div className="bg-blue-50/50 border border-blue-150 p-5 rounded-2xl text-xs leading-relaxed text-blue-900 font-semibold space-y-1">
+                        <p className="font-bold text-blue-950 uppercase text-[9px] tracking-wider mb-1">Requested Items:</p>
+                        <p>"{requestedDocsList}"</p>
+                      </div>
+
+                      {/* Upload Dropzones */}
+                      <div className="space-y-4 pt-2">
+                        <div className="border border-dashed border-dark-200 bg-cream-50/50 p-4 rounded-xl text-center cursor-pointer hover:bg-cream-50 transition-colors">
+                          <Upload className="w-6 h-6 text-sage-600 mx-auto mb-1.5" />
+                          <p className="text-xs font-bold text-dark-800">Upload Requested Documents File</p>
+                          <p className="text-[9px] text-dark-400 font-semibold mt-0.5">Select image or PDF file (max 10MB)</p>
+                        </div>
+
+                        <button
+                          onClick={handleResubmitDocs}
+                          className="w-full h-11 bg-gradient-brand text-white rounded-2xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
+                        >
+                          Resubmit Documents for Verification
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STATE 3: REJECTED */}
+                  {activeStatus === 'Rejected' && (
+                    <div className="bg-white rounded-3xl p-8 md:p-12 text-center border border-sage-100 shadow-card w-full max-w-2xl transform transition-all animate-scale-in space-y-6">
+                      <div className="w-16 h-16 bg-red-50 border border-red-100 rounded-full flex items-center justify-center mx-auto shadow-soft">
+                        <XCircle className="w-8 h-8 text-red-600" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <h2 className="font-display text-2xl font-black text-red-900 tracking-tight">Application Rejected</h2>
+                        <p className="text-xs text-dark-500 font-bold bg-cream-50 inline-block px-3 py-1 rounded-full border">Enrollment Declined</p>
+                      </div>
+
+                      <div className="bg-red-50 border border-red-150 p-5 rounded-2xl text-xs leading-relaxed text-red-800 text-left font-semibold space-y-1">
+                        <p className="font-bold text-red-950 uppercase text-[9px] tracking-wider mb-1">Rejection Details:</p>
+                        <p>"{rejectionReason}"</p>
+                      </div>
+
+                      <p className="text-dark-500 text-xs leading-relaxed">
+                        You can review your registration details, edit the required fields, upload valid KYC proofs, and resubmit the enrollment application.
+                      </p>
+
+                      <button
+                        onClick={handleStartResubmitForm}
+                        className="w-full h-11 bg-gradient-brand text-white rounded-2xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
+                      >
+                        Edit &amp; Resubmit Application
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
         </main>
 
-        {/* Minimal Footer */}
+        {/* Footer */}
         <footer className="py-6 border-t border-sage-100 text-center text-[10px] font-semibold text-dark-400 tracking-wider bg-white">
           &copy; {new Date().getFullYear()} FESTIVO PARTNER PORTAL. ALL RIGHTS RESERVED.
         </footer>
@@ -792,1979 +1859,1902 @@ export default function VendorDashboard() {
     );
   }
 
+  // Filter bookings based on search query
+  const filteredBookings = bookings.filter(b => 
+    b.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    b.event_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    b.booking_ref.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <>
-      <div className="min-h-screen bg-cream-50/50">
-        <div className="bg-gradient-to-r from-sage-900 to-sage-800 py-8 relative overflow-hidden">
-          <div className="orb w-72 h-72 bg-sage-600/20 -top-20 -left-20 opacity-30" />
-          <div className="orb w-72 h-72 bg-gold-500/10 -bottom-20 -right-20" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-brand rounded-2xl flex items-center justify-center shadow-glow flex-shrink-0">
-                  <Building2 className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-cream-50 flex flex-col font-body text-dark-800 antialiased selection:bg-sage-100 selection:text-sage-800">
+      
+      {/* Toast Alert Banner */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-[100] transform animate-fade-in">
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-card border text-sm font-semibold ${
+            toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            {toast.type === 'success' ? <Check className="w-4 h-4 text-emerald-600" /> : <X className="w-4 h-4 text-red-600" />}
+            {toast.text}
+          </div>
+        </div>
+      )}
+
+      {/* Main Container Layout */}
+      <div className="flex flex-1 relative min-h-screen">
+        
+        {/* Sidebar Panel - Desktop: Expanded (280px) | Tablet/Mobile: Drawer */}
+        <aside className={`
+          fixed top-0 bottom-0 left-0 z-40 w-[280px] bg-white border-r border-dark-100 flex flex-col justify-between transition-transform duration-300
+          lg:translate-x-0 lg:static lg:h-auto
+          ${sidebarOpen ? 'translate-x-0 shadow-card-hover' : '-translate-x-full'}
+        `}>
+          <div className="flex flex-col h-full">
+            
+            {/* Sidebar Brand Header */}
+            <div className="h-20 flex items-center justify-between px-6 border-b border-dark-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-gradient-brand rounded-xl flex items-center justify-center shadow-glow">
+                  <Building2 className="w-5 h-5 text-white" />
                 </div>
-                <div>
-                  <h1 className="font-display text-2xl md:text-3xl font-bold text-white">
-                    {profile?.full_name || user?.email?.split('@')[0] || 'Vendor'} Dashboard
-                  </h1>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="bg-gold-500 text-sage-900 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                      <Star className="w-3 h-3" /> Vendor Account
-                    </span>
-                    <span className="text-sage-200 text-sm">{user?.email}</span>
-                  </div>
-                </div>
+                <span className="font-display font-black text-xl text-sage-900 tracking-tight">Festivo</span>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => navigate('/vendor-registration')}
-                  className="px-4 py-2 bg-gold-500 hover:bg-gold-400 text-sage-950 rounded-xl text-sm font-bold transition-all shadow-md flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" /> Submit Service Listing
-                </button>
-                <div className="relative">
+              <button 
+                onClick={() => setSidebarOpen(false)} 
+                className="lg:hidden p-1 hover:bg-cream-100 rounded-lg text-dark-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Sidebar Main Links */}
+            <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto scrollbar-thin">
+              {sidebarItems.map(item => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                const isLocked = !kycUploaded && item.id !== 'dashboard' && item.id !== 'support';
+                return (
                   <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-colors relative"
+                    key={item.id}
+                    onClick={() => {
+                      if (isLocked) {
+                        showToast('Please upload your KYC documents to unlock this section.', 'error');
+                        return;
+                      }
+                      setActiveTab(item.id as any);
+                      setSidebarOpen(false);
+                    }}
+                    className={`
+                      w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all group
+                      ${isActive 
+                        ? 'bg-sage-600 text-white shadow-soft' 
+                        : isLocked
+                          ? 'text-dark-300 opacity-50 cursor-not-allowed'
+                          : 'text-dark-600 hover:text-sage-800 hover:bg-cream-50'
+                      }
+                    `}
                   >
-                    <Bell className="w-4 h-4" />
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center animate-pulse">
-                        {unreadCount}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-4 h-4 transition-transform ${
+                        isActive 
+                          ? 'text-white' 
+                          : isLocked
+                            ? 'text-dark-300'
+                            : 'text-dark-400 group-hover:text-sage-600 group-hover:scale-110'
+                      }`} />
+                      <span>{item.label}</span>
+                    </div>
+                    {isLocked ? (
+                      <span className="text-[10px] text-dark-400">🔒</span>
+                    ) : (
+                      item.badge !== undefined && item.badge > 0 && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isActive ? 'bg-white text-sage-700' : 'bg-sage-100 text-sage-700'
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )
                     )}
                   </button>
+                );
+              })}
+            </nav>
 
-                  {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-card border border-sage-100 z-50 p-4 animate-scale-in origin-top-right">
-                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-sage-50">
-                        <h4 className="font-display font-bold text-sage-900 text-sm">Notifications</h4>
+            {/* Sidebar Footer info */}
+            <div className="p-4 border-t border-dark-100 space-y-3">
+              {/* Demo Mode Toggle */}
+              <div className="flex items-center justify-between p-2 bg-cream-50 rounded-xl border border-cream-200">
+                <span className="text-[11px] font-bold text-dark-600">Demo Account</span>
+                <button 
+                  onClick={() => {
+                    setDemoMode(!demoMode);
+                    showToast(`Demo bypass ${!demoMode ? 'enabled' : 'disabled'}`);
+                  }}
+                  className="text-sage-600 hover:text-sage-800"
+                >
+                  {demoMode ? <ToggleRight className="w-7 h-7" /> : <ToggleLeft className="w-7 h-7" />}
+                </button>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={async () => {
+                  showToast('Logging out...');
+                  await signOut();
+                  navigate('/');
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 transition-all group"
+              >
+                <LogOut className="w-4 h-4 text-red-500 group-hover:translate-x-0.5 transition-transform" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Sidebar Overlay (Mobile/Tablet drawer backdrop) */}
+        {sidebarOpen && (
+          <div 
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-dark-950/20 backdrop-blur-sm z-30 lg:hidden"
+          />
+        )}
+
+        {/* Main Work Area (Right Side layout) */}
+        <div className="flex-1 flex flex-col min-w-0 max-w-[1600px] mx-auto w-full">
+          
+          {/* Top Navigation Bar */}
+          <header className="h-20 bg-white border-b border-dark-100 flex items-center justify-between px-6 md:px-8 z-20">
+            
+            {/* Topbar Left: Brand Title & Mobile Menu Trigger */}
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 hover:bg-cream-50 rounded-xl text-dark-600 transition-colors"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <div>
+                <h2 className="font-display font-black text-dark-900 text-lg md:text-xl">
+                  Good Morning, {profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Vendor'}
+                </h2>
+                <p className="text-dark-500 text-xs font-medium">Manage your business effortlessly.</p>
+              </div>
+            </div>
+
+            {/* Topbar Right: Actions Center */}
+            <div className="flex items-center gap-3 md:gap-6">
+              
+              {/* Search Bar Input */}
+              <div className="hidden md:flex items-center bg-cream-50 border border-dark-100 rounded-2xl px-4 py-2 w-64 focus-within:border-sage-300 focus-within:ring-2 focus-within:ring-sage-100 transition-all">
+                <span className="text-dark-400 mr-2">🔎</span>
+                <input
+                  type="text"
+                  placeholder="Search bookings..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-transparent text-sm w-full outline-none text-dark-800 placeholder-dark-400"
+                />
+              </div>
+
+              {/* Wallet Earnings Balance indicator */}
+              <div 
+                onClick={() => setActiveTab('earnings')}
+                className="cursor-pointer flex items-center gap-2 bg-cream-100 hover:bg-cream-200 border border-cream-200 rounded-2xl px-4 py-2 text-sage-950 transition-all"
+              >
+                <Wallet className="w-4 h-4 text-sage-700" />
+                <div className="text-left leading-none">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-sage-800">Earnings</p>
+                  <p className="text-xs font-black mt-0.5">₹42,500</p>
+                </div>
+              </div>
+
+              {/* Notifications bell dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                  className="w-11 h-11 bg-cream-50 border border-dark-100 rounded-2xl flex items-center justify-center text-dark-600 hover:bg-cream-100 transition-colors relative"
+                >
+                  <Bell className="w-4.5 h-4.5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  )}
+                </button>
+
+                {showNotifDropdown && (
+                  <>
+                    <div 
+                      onClick={() => setShowNotifDropdown(false)}
+                      className="fixed inset-0 z-30"
+                    />
+                    <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-card border border-dark-100 z-40 p-4 animate-scale-in origin-top-right">
+                      <div className="flex items-center justify-between pb-3 border-b border-dark-100 mb-3">
+                        <h4 className="font-display font-black text-sage-900 text-sm">Notifications</h4>
                         {unreadCount > 0 && (
                           <button 
-                            onClick={markAllAsRead} 
-                            className="text-xs text-sage-600 hover:underline font-semibold"
+                            onClick={handleMarkAllNotificationsRead}
+                            className="text-xs text-sage-600 hover:underline font-bold"
                           >
                             Mark all read
                           </button>
                         )}
                       </div>
-                      {notifications.length === 0 ? (
-                        <div className="text-center py-6 text-dark-400 text-sm">
-                          No notifications yet
-                        </div>
-                      ) : (
-                        <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-                          {notifications.map(notif => (
-                            <div 
-                              key={notif.id} 
-                              onClick={() => markAsRead(notif.id)}
-                              className={`p-3 rounded-xl text-left cursor-pointer transition-colors ${
-                                (notif.is_read || notif.read) ? 'bg-cream-50/50 hover:bg-cream-50' : 'bg-sage-50/80 hover:bg-sage-50 border-l-4 border-sage-500'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-1.5">
-                                <p className="font-bold text-sage-900 text-xs truncate">{notif.title}</p>
-                                {! (notif.is_read || notif.read) && (
-                                  <span className="w-2 h-2 rounded-full bg-sage-500 flex-shrink-0 mt-1" />
-                                )}
-                              </div>
-                              <p className="text-dark-600 text-[11px] leading-relaxed mt-1 font-medium">{notif.message}</p>
-                              <p className="text-dark-400 text-[9px] mt-1.5 font-medium">
-                                {new Date(notif.created_at || notif.timestamp).toLocaleDateString('en-IN', {
-                                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                                })}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={async () => { await signOut(); navigate('/'); }}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-medium transition-colors"
-                >
-                  <LogOut className="w-4 h-4" /> Sign Out
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-1 mt-6 overflow-x-auto">
-              {(['overview', 'bookings', 'services', 'availability', 'earnings', 'analytics', 'chat', 'profile'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all capitalize whitespace-nowrap ${
-                    activeTab === tab ? 'bg-white text-sage-600' : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {activeTab === 'overview' && (
-            <>
-              {/* Row 1: Welcome Banner (Profile, Business Score, and Rank) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                {/* Profile welcome box */}
-                <div className="lg:col-span-7 bg-gradient-to-r from-sage-900 to-sage-800 text-white rounded-3xl p-6 relative overflow-hidden shadow-soft">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-gold-500/10 to-transparent rounded-bl-full pointer-events-none" />
-                  <div className="flex flex-col sm:flex-row gap-5 items-start relative z-10">
-                    <div className="w-16 h-16 rounded-2xl bg-gold-500/20 border border-gold-400/40 flex items-center justify-center text-gold-400 font-display text-2xl font-bold flex-shrink-0 shadow-soft">
-                      {((profile?.full_name || user?.email)?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'V')}
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="font-display text-xl sm:text-2xl font-bold">👋 Good Morning, {profile?.full_name || user?.email?.split('@')[0]}</h2>
-                        {primaryVendor?.verified && (
-                          <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                            Verified Vendor
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sage-200 text-sm font-semibold">Business: {primaryVendor?.name || 'No Registered Business'}</p>
-                      
-                      <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-sage-200/90 pt-1">
-                        <div className="flex items-center gap-1">
-                          <span className="text-gold-400">{primaryVendor ? '★'.repeat(Math.round(primaryVendor.rating)) : '☆☆☆☆☆'}</span>
-                          <span>{primaryVendor ? primaryVendor.rating + ' Rating' : 'No Ratings'}</span>
-                        </div>
-                        <span>·</span>
-                        <span>Profile Completion: {primaryVendor ? '92%' : '0%'}</span>
-                        <span>·</span>
-                        <span>Last Login: Today 10:45 AM</span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 pt-3">
-                        <button onClick={() => setActiveTab('profile')} className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/15 text-xs font-bold rounded-xl transition-all">
-                          Edit Profile
-                        </button>
-                        <button onClick={() => navigate('/vendors')} className="px-3.5 py-1.5 bg-gold-500 hover:bg-gold-400 text-sage-950 text-xs font-bold rounded-xl transition-all shadow-md">
-                          View Public Profile
-                        </button>
-                        <button onClick={() => navigator.clipboard.writeText(window.location.origin + '/vendors')} className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/15 text-xs font-bold rounded-xl transition-all">
-                          Share Profile
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Score & Rank details box */}
-                <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div className="flex justify-between items-start gap-4">
-                    <div>
-                      <span className="text-sage-600 text-[10px] font-bold uppercase tracking-wider">Vendor Standing</span>
-                      <h4 className="font-display font-extrabold text-sage-900 text-lg mt-0.5">{primaryVendor ? primaryVendor.category : 'Vendor'} Rank</h4>
-                      <p className="text-dark-500 text-xs mt-1 font-semibold">{primaryVendor ? 'Top 12 in Bangalore · Gold Vendor' : 'Complete setup to get ranked'}</p>
-                    </div>
-                    <div className="w-11 h-11 rounded-xl bg-gold-50 flex items-center justify-center flex-shrink-0 shadow-soft">
-                      <Star className="w-6 h-6 text-gold-500 fill-gold-500" />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-sage-50 flex items-center justify-between gap-4 mt-4">
-                    <div>
-                      <p className="text-dark-400 text-xs font-semibold">Business Score</p>
-                      <div className="flex items-baseline gap-1.5 mt-1">
-                        <span className="font-display font-black text-sage-900 text-2xl">{primaryVendor ? '92%' : '0%'}</span>
-                        <span className={`${primaryVendor ? 'text-emerald-600' : 'text-dark-400'} text-xs font-bold`}>{primaryVendor ? 'Excellent' : 'No Data'}</span>
-                      </div>
-                    </div>
-                    {/* Score ring */}
-                    <div className="relative w-12 h-12 flex items-center justify-center">
-                      <svg className="w-full h-full transform -rotate-90">
-                        <circle cx="24" cy="24" r="20" fill="transparent" stroke="#f1f5f9" strokeWidth="4" />
-                        <circle cx="24" cy="24" r="20" fill="transparent" stroke="#5d8560" strokeWidth="4" strokeDasharray="125" strokeDashoffset={primaryVendor ? "10" : "125"} />
-                      </svg>
-                      <span className="absolute text-[10px] font-extrabold text-sage-900">{primaryVendor ? '92%' : '0%'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2: KPI Cards (6 in a row) */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-                {[
-                  { label: 'Revenue', val: primaryVendor ? '₹' + totalEarnings.toLocaleString('en-IN') : '₹0', icon: DollarSign, color: 'bg-emerald-50 text-emerald-700' },
-                  { label: 'Bookings', val: primaryVendor ? String(bookings.length) : '0', icon: Calendar, color: 'bg-sage-50 text-sage-700' },
-                  { label: 'Pending Leads', val: primaryVendor ? String(bookingRequests.filter(r => r.status === 'Pending').length) : '0', icon: MessageSquare, color: 'bg-amber-50 text-amber-700' },
-                  { label: 'Upcoming Events', val: primaryVendor ? String(bookings.filter(b => b.status === 'confirmed').length) : '0', icon: Clock, color: 'bg-blue-50 text-blue-700' },
-                  { label: 'Profile Views', val: primaryVendor ? String(totalViews) : '0', icon: Eye, color: 'bg-purple-50 text-purple-700' },
-                  { label: 'Average Rating', val: primaryVendor ? (primaryVendor.rating || '0.0') + ' ★' : '0.0 ★', icon: Star, color: 'bg-gold-50 text-gold-700' }
-                ].map((kpi, idx) => (
-                  <div key={idx} className="bg-white rounded-2xl border border-sage-100 p-4.5 card-hover shadow-sm flex flex-col justify-between">
-                    <div className={`w-9 h-9 rounded-xl ${kpi.color} flex items-center justify-center mb-3 shadow-soft`}>
-                      <kpi.icon className="w-4.5 h-4.5" />
-                    </div>
-                    <div>
-                      <p className="font-display font-extrabold text-sage-900 text-lg leading-tight">{kpi.val}</p>
-                      <p className="text-dark-500 text-xs mt-1 font-semibold">{kpi.label}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Row 3: Revenue Chart & Booking Chart */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                {/* Revenue Analytics (7 cols) */}
-                <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div className="flex items-center justify-between border-b border-sage-50 pb-4 mb-4">
-                    <div>
-                      <h3 className="font-display font-bold text-sage-900 text-base">Revenue Analytics</h3>
-                      <p className="text-dark-400 text-xs mt-0.5 font-semibold">Earnings & Net Income Tracking</p>
-                    </div>
-                    {/* Filter tabs */}
-                    <div className="flex gap-1 bg-sage-50 p-1 rounded-xl">
-                      {['week', 'month', 'year'].map(t => (
-                        <button
-                          key={t}
-                          onClick={() => setRevFilter(t as any)}
-                          className={`px-3 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all ${
-                            revFilter === t ? 'bg-white text-sage-700 shadow-sm' : 'text-dark-400 hover:text-sage-600'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* SVG Revenue Line Graph */}
-                  <div className="relative w-full h-48 py-2">
-                    <svg className="w-full h-full" viewBox="0 0 100 40" preserveAspectRatio="none">
-                      {/* Grid lines */}
-                      <line x1="0" y1="10" x2="100" y2="10" stroke="#f1f5f9" strokeWidth="0.2" />
-                      <line x1="0" y1="20" x2="100" y2="20" stroke="#f1f5f9" strokeWidth="0.2" />
-                      <line x1="0" y1="30" x2="100" y2="30" stroke="#f1f5f9" strokeWidth="0.2" />
-                      {/* Earnings line */}
-                      <path d="M 0,35 Q 25,25 50,15 T 100,5" fill="none" stroke="#5d8560" strokeWidth="1.2" />
-                      {/* Net Income line */}
-                      <path d="M 0,38 Q 25,30 50,22 T 100,10" fill="none" stroke="#10b981" strokeWidth="1.2" strokeDasharray="1" />
-                      {/* Commission line */}
-                      <path d="M 0,39 Q 25,38 50,35 T 100,32" fill="none" stroke="#c19350" strokeWidth="1" />
-                    </svg>
-                    <div className="absolute inset-0 flex justify-between pointer-events-none items-end text-[9px] text-dark-400 font-bold px-1">
-                      <span>Start</span>
-                      <span>Mid-Point</span>
-                      <span>End-Period</span>
-                    </div>
-                  </div>
-
-                  {/* Legends */}
-                  <div className="flex justify-start gap-5 pt-4 border-t border-sage-50 text-[11px] font-bold text-dark-500">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-sage-600" />
-                      <span>Earnings</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                      <span>Net Income</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-gold-500" />
-                      <span>Commission</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Booking Overview Pie Chart (5 cols) */}
-                <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div className="border-b border-sage-50 pb-4 mb-4">
-                    <h3 className="font-display font-bold text-sage-900 text-base">Booking Overview</h3>
-                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Distribution & Target Projections</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                    {/* CSS Circle Donut Pie Chart */}
-                    <div className="flex justify-center py-2">
-                      <div className="relative w-32 h-32 rounded-full border-8 border-sage-600 flex items-center justify-center shadow-soft">
-                        <div className="absolute inset-0 rounded-full border-8 border-gold-500 border-t-transparent border-r-transparent transform rotate-45" />
-                        <div className="absolute inset-0 rounded-full border-8 border-rose-500 border-t-transparent border-l-transparent transform -rotate-12" />
-                        <div className="text-center">
-                          <p className="text-[10px] text-dark-400 font-bold uppercase">Total Bookings</p>
-                          <p className="font-display font-extrabold text-sage-900 text-lg leading-tight">42</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Booking timeline list */}
-                    <div className="space-y-2">
-                      {[
-                        { label: "Today's Bookings", val: '3', bg: 'bg-sage-50 text-sage-900' },
-                        { label: 'Tomorrow', val: '2', bg: 'bg-cream-50 text-cream-950' },
-                        { label: 'This Week', val: '8', bg: 'bg-sage-50 text-sage-900' },
-                        { label: 'This Month', val: '31', bg: 'bg-gold-50 text-gold-900' }
-                      ].map((item, idx) => (
-                        <div key={idx} className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold ${item.bg}`}>
-                          <span>{item.label}</span>
-                          <span className="font-bold">{item.val}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Status checklist */}
-                  <div className="flex flex-wrap gap-2.5 justify-center pt-4 border-t border-sage-50 text-[10px] font-bold text-dark-500">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-sage-600" /> Completed</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Upcoming</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Pending</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" /> Cancelled</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" /> Rejected</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 4: Latest Booking Requests & Availability Calendar */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                {/* Latest Booking Requests (7 cols) */}
-                <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="border-b border-sage-50 pb-4 mb-4">
-                      <h3 className="font-display font-bold text-sage-900 text-base">Latest Booking Requests</h3>
-                      <p className="text-dark-400 text-xs mt-0.5 font-semibold">Active incoming client leads</p>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-sage-100 text-[10px] text-dark-500 font-bold uppercase tracking-wider">
-                            <th className="pb-2 text-left">Customer</th>
-                            <th className="pb-2 text-left">Event</th>
-                            <th className="pb-2 text-left">Budget</th>
-                            <th className="pb-2 text-left">Date</th>
-                            <th className="pb-2 text-left">Status</th>
-                            <th className="pb-2 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-sage-50 text-xs font-semibold">
-                          {bookingRequests.map(req => (
-                            <tr key={req.id} className="hover:bg-sage-50/40 transition-colors">
-                              <td className="py-3 text-sage-900 font-bold">{req.customer}</td>
-                              <td className="py-3 text-dark-700">{req.event}</td>
-                              <td className="py-3 text-sage-800 font-bold">{req.budget}</td>
-                              <td className="py-3 text-dark-500">{req.date}</td>
-                              <td className="py-3">
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                  req.status === 'Accepted' 
-                                    ? 'bg-emerald-100 text-emerald-800' 
-                                    : 'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {req.status}
-                                </span>
-                              </td>
-                              <td className="py-3 text-right">
-                                <div className="flex gap-1 justify-end">
-                                  {req.status === 'Pending' && (
-                                    <>
-                                      <button
-                                        onClick={() => {
-                                          setBookingRequests(bookingRequests.map(r => r.id === req.id ? { ...r, status: 'Accepted' } : r));
-                                        }}
-                                        className="px-2 py-0.5 bg-gradient-brand text-white text-[10px] font-bold rounded-lg shadow-sm"
-                                      >
-                                        Accept
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setBookingRequests(bookingRequests.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));
-                                        }}
-                                        className="px-2 py-0.5 bg-cream-200 text-cream-800 text-[10px] font-bold rounded-lg"
-                                      >
-                                        Reject
-                                      </button>
-                                    </>
-                                  )}
-                                  <button onClick={() => setActiveTab('bookings')} className="px-2 py-0.5 bg-sage-100 hover:bg-sage-200 text-sage-800 text-[10px] font-bold rounded-lg">
-                                    View
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Availability Calendar (5 cols) */}
-                <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="border-b border-sage-50 pb-4 mb-4 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-display font-bold text-sage-900 text-base">Availability Calendar</h3>
-                        <p className="text-dark-400 text-xs mt-0.5 font-semibold">August 2026 Schedule</p>
-                      </div>
-                      <span className="text-[10px] font-bold bg-sage-50 text-sage-700 px-2 py-0.5 rounded border border-sage-100">
-                        Monthly
-                      </span>
-                    </div>
-
-                    {/* Mini Calendar mockup */}
-                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-dark-500 mb-4">
-                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} className="py-1 text-sage-600">{d}</div>)}
-                      {[...Array(31)].map((_, i) => {
-                        const dayNum = i + 1;
-                        const dateStr = `2026-08-${dayNum < 10 ? '0' + dayNum : dayNum}`;
-                        const isBlocked = blockedDates.includes(dateStr);
-                        const isHoliday = dayNum === 15;
-                        const isBooked = dayNum === 10 || dayNum === 12;
-
-                        let bgStyle = 'bg-cream-50/50 border-transparent';
-                        if (isBooked) bgStyle = 'bg-emerald-500 text-white border-emerald-600';
-                        else if (isBlocked) bgStyle = 'bg-rose-500 text-white border-rose-600';
-                        else if (isHoliday) bgStyle = 'bg-amber-500 text-white border-amber-600';
-
-                        return (
-                          <div
-                            key={i}
+                      <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                        {notifications.map(n => (
+                          <div 
+                            key={n.id}
                             onClick={() => {
-                              if (blockedDates.includes(dateStr)) {
-                                setBlockedDates(blockedDates.filter(d => d !== dateStr));
-                              } else {
-                                setBlockedDates([...blockedDates, dateStr]);
-                              }
+                              handleMarkNotificationRead(n.id);
+                              setShowNotifDropdown(false);
                             }}
-                            className={`py-1.5 rounded-lg border text-[9px] font-extrabold cursor-pointer transition-all hover:scale-105 ${bgStyle}`}
+                            className={`p-3 rounded-xl text-left cursor-pointer transition-all ${
+                              n.is_read ? 'bg-cream-50 hover:bg-cream-100/50' : 'bg-sage-50/50 hover:bg-sage-50 border-l-4 border-sage-500'
+                            }`}
                           >
-                            {dayNum}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Calendar legends */}
-                    <div className="flex flex-wrap gap-2 text-[9px] font-bold text-dark-400 justify-center">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-cream-100 border border-sage-200" /> Available</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-emerald-500" /> Booked</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-amber-500" /> Holiday</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-rose-500" /> Blocked</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-sage-50">
-                    <button
-                      onClick={() => setBlockedDates([...blockedDates, '2026-08-01'])}
-                      className="py-1.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
-                    >
-                      Block Date
-                    </button>
-                    <button
-                      onClick={() => setBlockedDates([])}
-                      className="py-1.5 bg-sage-800 hover:bg-sage-900 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
-                    >
-                      Open All Dates
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 5: Top Services & Earnings Summary */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                {/* Top Services (6 cols) */}
-                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div className="border-b border-sage-50 pb-4 mb-4">
-                    <h3 className="font-display font-bold text-sage-900 text-base">Top Services</h3>
-                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Listing booking distributions</p>
-                  </div>
-
-                  {/* Horizontal Bar Chart */}
-                  <div className="space-y-4 py-2">
-                    {[
-                      { name: 'Wedding Photography', count: primaryVendor ? 52 : 0, pct: primaryVendor ? 'w-full' : 'w-0', bg: 'bg-sage-600' },
-                      { name: 'Pre-Wedding Shoot', count: primaryVendor ? 32 : 0, pct: primaryVendor ? 'w-3/5' : 'w-0', bg: 'bg-gold-500' },
-                      { name: 'Birthday Shoot', count: primaryVendor ? 24 : 0, pct: primaryVendor ? 'w-[45%]' : 'w-0', bg: 'bg-sage-500' },
-                      { name: 'Corporate Events', count: primaryVendor ? 16 : 0, pct: primaryVendor ? 'w-[30%]' : 'w-0', bg: 'bg-cream-800' }
-                    ].map((svc, idx) => (
-                      <div key={idx} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                          <span className="text-sage-900">{svc.name}</span>
-                          <span className="text-dark-500">{svc.count} Bookings</span>
-                        </div>
-                        <div className="w-full bg-sage-50 h-3 rounded-full overflow-hidden border border-sage-100">
-                          <div className={`h-full ${svc.bg} ${svc.pct} rounded-full`} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Earnings Summary (6 cols) */}
-                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div className="border-b border-sage-50 pb-4 mb-4 flex items-center justify-between">
-                    <div>
-                      <h3 className="font-display font-bold text-sage-900 text-base">Earnings Summary</h3>
-                      <p className="text-dark-400 text-xs mt-0.5 font-semibold">Withdraw settlements history</p>
-                    </div>
-                    <span className="text-emerald-600 text-xs font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded">
-                      Settled
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3.5">
-                    {[
-                      { label: "Today's Earnings", val: primaryVendor ? '₹15,000' : '₹0', color: 'text-sage-900' },
-                      { label: 'This Week', val: primaryVendor ? '₹62,000' : '₹0', color: 'text-sage-900' },
-                      { label: 'Pending Payouts', val: primaryVendor ? '₹28,000' : '₹0', color: 'text-amber-600' },
-                      { label: 'Withdrawable Balance', val: primaryVendor ? '₹45,000' : '₹0', color: 'text-emerald-600' }
-                    ].map((item, idx) => (
-                      <div key={idx} className="p-3 bg-cream-50/50 rounded-2xl border border-sage-100/30 text-center">
-                        <p className="text-[10px] text-dark-500 font-semibold">{item.label}</p>
-                        <p className={`font-display font-extrabold text-sm sm:text-base mt-1 ${item.color}`}>{item.val}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      if (primaryVendor) {
-                        alert('Withdrawal request of ₹45,000 logged securely! Sent for approval.');
-                      } else {
-                        alert('No withdrawable balance available.');
-                      }
-                    }}
-                    className="w-full py-3 bg-gradient-brand hover:shadow-glow text-white font-bold rounded-xl text-xs mt-4 shadow-sm transition-all flex items-center justify-center gap-1.5"
-                  >
-                    Withdraw Money
-                  </button>
-                </div>
-              </div>
-
-              {/* Row 6: Business Insights & Performance Score */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                {/* Business Insights (6 cols) */}
-                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div className="border-b border-sage-50 pb-4 mb-4">
-                    <h3 className="font-display font-bold text-sage-900 text-base">Business Insights</h3>
-                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Platform performance stats</p>
-                  </div>
-
-                  <div className="space-y-3.5 font-semibold">
-                    {[
-                      { label: 'Profile Views', val: primaryVendor ? '2,450' : '0', desc: 'Total calendar views' },
-                      { label: 'Enquiries', val: primaryVendor ? '180' : '0', desc: 'Active chats created' },
-                      { label: 'Conversion Rate', val: primaryVendor ? '38%' : '0%', desc: 'Enquiry to booking ratio' },
-                      { label: 'Repeat Customers', val: primaryVendor ? '42%' : '0%', desc: 'Repeat corporate client book' },
-                      { label: 'Average Response Time', val: primaryVendor ? '18 min' : '—', desc: 'Average first response' }
-                    ].map((insight, idx) => (
-                      <div key={idx} className="flex justify-between items-center p-2.5 bg-cream-50/30 rounded-xl border border-sage-100/30">
-                        <div>
-                          <p className="text-sage-900 text-xs font-bold">{insight.label}</p>
-                          <span className="text-[9px] text-dark-400">{insight.desc}</span>
-                        </div>
-                        <span className="font-display font-black text-sage-800 text-sm">{insight.val}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Performance Score & Monthly Target (6 cols) */}
-                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="border-b border-sage-50 pb-4 mb-4">
-                      <h3 className="font-display font-bold text-sage-900 text-base">Performance Score</h3>
-                      <p className="text-dark-400 text-xs mt-0.5 font-semibold">Based on platform response rating</p>
-                    </div>
-
-                    <div className="space-y-2.5 pb-4 border-b border-sage-50">
-                      {[
-                        { name: 'Response Time', pct: primaryVendor ? '88%' : '0%' },
-                        { name: 'Reviews Score', pct: primaryVendor ? '92%' : '0%' },
-                        { name: 'Profile Quality', pct: primaryVendor ? '92%' : '0%' },
-                        { name: 'Acceptance Rate', pct: primaryVendor ? '93%' : '0%' }
-                      ].map((bar, idx) => (
-                        <div key={idx} className="space-y-1 text-[11px] font-bold text-dark-500">
-                          <div className="flex justify-between">
-                            <span>{bar.name}</span>
-                            <span>{bar.pct}</span>
-                          </div>
-                          <div className="w-full bg-sage-50 h-2 rounded-full overflow-hidden border border-sage-100/50">
-                            <div className="h-full bg-sage-600 rounded-full" style={{ width: bar.pct }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Monthly target */}
-                  <div className="pt-4">
-                    <div className="flex justify-between items-baseline text-xs font-bold mb-1.5">
-                      <span className="text-sage-900">Monthly Goal</span>
-                      <span className="text-dark-500">{primaryVendor ? '₹3,60,000 / ₹5,00,000 (72%)' : '₹0 / ₹0 (0%)'}</span>
-                    </div>
-                    <div className="w-full bg-sage-50 h-3.5 rounded-full overflow-hidden border border-sage-100 p-0.5">
-                      <div className="h-full bg-gold-500 rounded-full flex items-center justify-end pr-2 text-[9px] font-extrabold text-sage-950" style={{ width: primaryVendor ? '72%' : '0%' }}>
-                        {primaryVendor ? '72%' : '0%'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 7: Customer Reviews & Messages */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                {/* Customer Reviews (7 cols) */}
-                <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="border-b border-sage-50 pb-4 mb-4 flex justify-between items-center">
-                      <div>
-                        <h3 className="font-display font-bold text-sage-900 text-base">Customer Reviews</h3>
-                        <p className="text-dark-400 text-xs mt-0.5 font-semibold">Latest verified bookings reviews</p>
-                      </div>
-                      <span className="text-gold-600 text-xs font-bold bg-gold-50 border border-gold-100 px-2 py-0.5 rounded">
-                        Latest 5
-                      </span>
-                    </div>
-
-                    <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
-                      {reviewsList.map((rev, idx) => (
-                        <div key={rev.id} className="p-3 bg-cream-50/30 rounded-2xl border border-sage-100/30 text-xs font-semibold space-y-1.5">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className="text-sage-900 font-bold">{rev.author}</span>
-                              <span className="text-dark-400 text-[10px] ml-1.5">for {rev.event}</span>
+                            <div className="flex items-start justify-between gap-1.5">
+                              <p className="font-bold text-dark-900 text-xs">{n.title}</p>
+                              {!n.is_read && <span className="w-1.5 h-1.5 bg-sage-500 rounded-full mt-1" />}
                             </div>
-                            <span className="text-gold-500">{'★'.repeat(Math.floor(rev.rating))}</span>
-                          </div>
-                          <p className="text-dark-500 font-medium italic">"{rev.comment}"</p>
-                          {rev.reply && (
-                            <div className="bg-sage-50/50 p-2 rounded-xl text-sage-800 border border-sage-100 mt-1 font-semibold text-[10px]">
-                              <b>Your Reply:</b> {rev.reply}
-                            </div>
-                          )}
-                          {!rev.reply && (
-                            <div className="flex justify-end pt-1">
-                              {replyIndex === idx ? (
-                                <div className="w-full space-y-1.5">
-                                  <input
-                                    type="text"
-                                    placeholder="Write a professional reply..."
-                                    value={replyText}
-                                    onChange={(e) => setReplyText(e.target.value)}
-                                    className="w-full px-3 py-1 border border-sage-200 rounded-lg text-[10px] outline-none"
-                                  />
-                                  <div className="flex gap-1 justify-end">
-                                    <button
-                                      onClick={() => {
-                                        if (replyText.trim()) {
-                                          setReviewsList(reviewsList.map(r => r.id === rev.id ? { ...r, reply: replyText } : r));
-                                          setReplyIndex(null);
-                                          setReplyText('');
-                                        }
-                                      }}
-                                      className="px-2.5 py-1 bg-gradient-brand text-white text-[9px] font-bold rounded-lg shadow-sm"
-                                    >
-                                      Submit
-                                    </button>
-                                    <button onClick={() => setReplyIndex(null)} className="px-2.5 py-1 bg-slate-100 text-dark-500 text-[9px] font-bold rounded-lg">
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => { setReplyIndex(idx); setReplyText(''); }}
-                                  className="text-sage-600 font-bold hover:underline text-[10px]"
-                                >
-                                  Reply to Review
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Messages (5 cols) */}
-                <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="border-b border-sage-50 pb-4 mb-4 flex justify-between items-center">
-                      <div>
-                        <h3 className="font-display font-bold text-sage-900 text-base">In-App Messages</h3>
-                        <p className="text-dark-400 text-xs mt-0.5 font-semibold">Recent customer chats</p>
-                      </div>
-                      <span className="text-emerald-700 text-[10px] font-extrabold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        {primaryVendor ? '12 Unread' : '0 Unread'}
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {(primaryVendor ? [
-                        { name: 'Rahul S.', subject: 'Quotation Request for August 10 Wedding', time: '10 min ago' },
-                        { name: 'Sneha P.', subject: 'Photoshoot venue directions & timeline', time: '1 hour ago' },
-                        { name: 'Vikram K.', subject: 'Package customisation enquiries check', time: 'Yesterday' }
-                      ] : []).map((msg, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-3 bg-cream-50/40 rounded-xl border border-sage-100/30 text-xs font-semibold">
-                          <div>
-                            <p className="text-sage-900 font-bold">{msg.name}</p>
-                            <p className="text-dark-500 text-[10px] truncate max-w-[190px]">{msg.subject}</p>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-[9px] text-dark-400 block">{msg.time}</span>
-                            <button onClick={() => setActiveTab('chat')} className="text-[10px] text-sage-600 font-bold hover:underline mt-1">
-                              View Chat
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <button onClick={() => setActiveTab('chat')} className="w-full py-2.5 bg-sage-800 text-white font-bold rounded-xl text-xs mt-4">
-                    Open Inbox
-                  </button>
-                </div>
-              </div>
-
-              {/* Row 8: AI Suggestions & System Notifications */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                {/* AI Suggestions (6 cols) */}
-                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div className="border-b border-sage-50 pb-4 mb-4">
-                    <h3 className="font-display font-bold text-sage-900 text-base">AI Business Suggestions</h3>
-                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Algorithm recommendations to boost bookings</p>
-                  </div>
-
-                  <div className="space-y-3 font-semibold">
-                    {(primaryVendor ? [
-                      { tip: 'Upload more Wedding Photos', score: 'Increases views by 24%', style: 'bg-emerald-50 border-emerald-100 text-emerald-800' },
-                      { tip: 'Customers are searching for Drone Photography', score: 'Add this package keyword to category lists', style: 'bg-gold-50 border-gold-200 text-gold-900' },
-                      { tip: 'Your average response time increased by 12%', score: 'Respond faster to keep priority badges', style: 'bg-rose-50 border-rose-100 text-rose-800' },
-                      { tip: 'Offer a Festival Discount package', score: 'Clients booking now are looking for deals', style: 'bg-sage-50 border-sage-100 text-sage-800' },
-                      { tip: 'Update your portfolio cover image', score: 'Attracts 3.5x higher click through rate', style: 'bg-purple-50 border-purple-100 text-purple-800' }
-                    ] : [
-                      { tip: 'Complete your Business Setup', score: 'Register your business first to start getting bookings suggestions.', style: 'bg-emerald-50 border-emerald-100 text-emerald-800' }
-                    ]).map((item, idx) => (
-                      <div key={idx} className={`p-3 rounded-2xl border text-xs font-semibold ${item.style}`}>
-                        <p className="font-bold">{item.tip}</p>
-                        <span className="text-[10px] opacity-90 block mt-0.5">{item.score}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* System Notifications (6 cols) */}
-                <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-sage-100 shadow-sm flex flex-col justify-between">
-                  <div className="border-b border-sage-50 pb-4 mb-4">
-                    <h3 className="font-display font-bold text-sage-900 text-base">System Notifications</h3>
-                    <p className="text-dark-400 text-xs mt-0.5 font-semibold">Key compliance & system alerts</p>
-                  </div>
-
-                  <div className="space-y-3 font-semibold">
-                    {(primaryVendor ? [
-                      { icon: CheckCircle2, text: 'Booking Confirmed: Rahul S. Wedding - Aug 10 locked.', time: '10 min ago', color: 'text-emerald-600 bg-emerald-50' },
-                      { icon: DollarSign, text: 'Payment Received: ₹25,000 escrow deposit credited.', time: '1 hour ago', color: 'text-gold-600 bg-gold-50' },
-                      { icon: Star, text: 'Review Added: Verified review by Sneha P. published.', time: '2 hours ago', color: 'text-sage-700 bg-sage-50' },
-                      { icon: FileText, text: 'Document Expiring: Re-upload PAN/Aadhaar identity verification.', time: '1 day ago', color: 'text-rose-600 bg-rose-50' },
-                      { icon: Shield, text: 'Subscription Status: Premium listing tier renewal due.', time: '2 days ago', color: 'text-blue-600 bg-blue-50' }
-                    ] : [
-                      { icon: CheckCircle2, text: 'Welcome to Festivo! Please complete your vendor registration to get started.', time: 'Just now', color: 'text-emerald-600 bg-emerald-50' }
-                    ]).map((notif, idx) => (
-                      <div key={idx} className="flex gap-3 items-start p-2.5 bg-cream-50/20 rounded-xl border border-sage-100/30 text-xs font-semibold">
-                        <div className={`w-8 h-8 rounded-lg ${notif.color} flex items-center justify-center flex-shrink-0 shadow-soft`}>
-                          <notif.icon className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sage-900 leading-normal">{notif.text}</p>
-                          <span className="text-[9px] text-dark-400 block mt-0.5">{notif.time}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 9: Quick Actions Grid (Full Width) */}
-              <div className="bg-white rounded-3xl p-6 border border-sage-100 shadow-sm">
-                <h3 className="font-display font-bold text-sage-900 text-base mb-5">Quick Dashboard Actions</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {[
-                    { label: 'Add Package', action: () => setActiveTab('services') },
-                    { label: 'Upload Portfolio', action: () => setActiveTab('profile') },
-                    { label: 'Add Offer', action: () => setActiveTab('profile') },
-                    { label: 'Block Dates', action: () => setActiveTab('availability') },
-                    { label: 'Download Invoice', action: () => alert('GST-compliant invoices downloaded to documents!') },
-                    { label: 'Withdraw Money', action: () => alert('Balance withdrawal logged!') }
-                  ].map((btn, idx) => (
-                    <button
-                      key={idx}
-                      onClick={btn.action}
-                      className="py-3 px-4 bg-cream-50 hover:bg-cream-100 text-sage-950 border border-sage-100 rounded-2xl text-xs font-bold transition-all card-hover shadow-soft flex items-center justify-center gap-1.5"
-                    >
-                      + {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              {vendors.length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-card p-12 text-center">
-                  <div className="w-20 h-20 bg-sage-100 rounded-full flex items-center justify-center mx-auto mb-5">
-                    <Building2 className="w-10 h-10 text-sage-600" />
-                  </div>
-                  <h3 className="font-display text-2xl font-bold text-sage-900 mb-2">No listings yet</h3>
-                  <p className="text-dark-500 max-w-sm mx-auto mb-6">
-                    Create your first vendor listing to start receiving bookings from thousands of event planners.
-                  </p>
-                  <button
-                    onClick={() => navigate('/vendors')}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow transition-all"
-                  >
-                    <Plus className="w-4 h-4" /> Create Listing
-                  </button>
-                </div>
-              ) : (
-                <div
-                  ref={listingsView.ref}
-                  className={`grid grid-cols-1 lg:grid-cols-3 gap-8 animate-on-scroll ${listingsView.inView ? 'in-view' : ''}`}
-                >
-                  <div className="lg:col-span-2">
-                    {categoryDef && (
-                      <div className="bg-white rounded-2xl shadow-card p-6 mb-6 border border-sage-100 relative overflow-hidden card-hover">
-                        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${categoryDef.gradient} opacity-5 rounded-bl-full`} />
-                        <div className="flex items-start gap-4 relative z-10">
-                          <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${categoryDef.gradient} flex items-center justify-center flex-shrink-0 shadow-soft`}>
-                            <categoryDef.icon className="w-6 h-6 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sage-500 text-xs font-bold tracking-widest uppercase">Service Role Overview</span>
-                            <h2 className="font-display text-xl font-bold text-sage-900 mt-0.5 mb-2">
-                              Your Role as a Professional {categoryDef.label}
-                            </h2>
-                            <p className="text-dark-500 text-sm leading-relaxed font-medium mb-4">
-                              {categoryDef.longDescription}
+                            <p className="text-dark-500 text-[11px] leading-normal mt-0.5">{n.message}</p>
+                            <p className="text-dark-400 text-[9px] mt-1.5">
+                              {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5 pt-5 border-t border-sage-100">
-                          <div>
-                            <h4 className="font-display font-bold text-sage-900 text-sm mb-3 flex items-center gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-sage-600" /> Key Services & Deliverables
-                            </h4>
-                            <ul className="space-y-2">
-                              {categoryDef.whatTheyDo.map((item, idx) => (
-                                <li key={idx} className="flex items-start gap-2 text-dark-500 text-xs font-semibold leading-relaxed">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-sage-500 mt-1.5 flex-shrink-0" />
-                                  {item}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <h4 className="font-display font-bold text-sage-900 text-sm mb-3 flex items-center gap-2">
-                              <Sparkles className="w-4 h-4 text-gold-500" /> Pro Success Tips
-                            </h4>
-                            <ul className="space-y-2">
-                              {getProTips(categoryDef.label).map((tip, idx) => (
-                                <li key={idx} className="flex items-start gap-2 text-dark-500 text-xs font-semibold leading-relaxed">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-gold-400 mt-1.5 flex-shrink-0" />
-                                  {tip}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div className="bg-white rounded-2xl shadow-card p-6">
-                      <h2 className="font-display text-xl font-bold text-sage-900 mb-5 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-sage-500" /> Recent Bookings
-                      </h2>
-                      {bookings.length === 0 ? (
-                        <div className="text-center py-10">
-                          <Clock className="w-10 h-10 text-sage-300 mx-auto mb-3" />
-                          <p className="text-dark-500">No bookings yet</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {bookings.slice(0, 6).map(booking => (
-                            <div key={booking.id} className="flex items-center gap-4 p-4 bg-sage-50/60 rounded-xl hover:bg-sage-100/60 transition-colors">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <p className="font-bold text-sage-900 text-sm truncate">{booking.customer_name}</p>
-                                  {statusBadge(booking.status)}
-                                </div>
-                                <p className="text-dark-500 text-xs">{booking.event_type} · {new Date(booking.event_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · {booking.guests} guests</p>
-                                {booking.vendor_name && <p className="text-dark-400 text-xs mt-0.5">For: {booking.vendor_name}</p>}
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className="font-bold text-sage-900 text-sm">₹{booking.total_amount.toLocaleString('en-IN')}</p>
-                                <p className="text-dark-400 text-xs">{booking.booking_ref}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {bookings.length > 6 && (
-                        <button onClick={() => setActiveTab('bookings')} className="mt-4 w-full text-sm text-sage-600 font-bold py-2 hover:underline flex items-center justify-center gap-1">
-                          View all {bookings.length} bookings <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="bg-white rounded-2xl shadow-card p-6">
-                      <h2 className="font-display text-xl font-bold text-sage-900 mb-5 flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-gold-500" /> My Listings
-                      </h2>
-                      <div className="space-y-3">
-                        {vendors.slice(0, 4).map(vendor => (
-                          <div key={vendor.id} className="flex items-center gap-3 p-3 bg-sage-50/60 rounded-xl hover:bg-sage-100/60 transition-colors cursor-pointer" onClick={() => navigate(`/vendors/${vendor.slug}`)}>
-                            <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                              <img src={vendor.image} alt={vendor.name} className="w-full h-full object-cover" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sage-900 text-sm truncate">{vendor.name}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <div className="flex items-center gap-1">
-                                  <Star className="w-3 h-3 text-gold-500 fill-gold-500" />
-                                  <span className="text-dark-700 text-xs font-semibold">{vendor.rating}</span>
-                                </div>
-                                <span className="text-dark-400 text-xs">· {vendor.category}</span>
-                              </div>
-                            </div>
-                            <Eye className="w-4 h-4 text-sage-500 flex-shrink-0" />
                           </div>
                         ))}
                       </div>
                     </div>
+                  </>
+                )}
+              </div>
 
-                    <div className="bg-gradient-to-br from-sage-800 to-sage-900 rounded-2xl p-5">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Settings className="w-5 h-5 text-gold-400" />
-                        <h3 className="font-bold text-white text-sm">Quick Actions</h3>
+              {/* Profile Avatar circle */}
+              <div 
+                onClick={() => setActiveTab('settings')}
+                className="w-11 h-11 rounded-2xl bg-gradient-brand flex items-center justify-center text-white font-display text-sm font-bold shadow-soft border border-white hover:scale-105 cursor-pointer transition-transform"
+              >
+                {settingsForm.business_name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()}
+              </div>
+
+            </div>
+          </header>
+
+          {/* Render Area for Tabs */}
+          <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+
+            {/* TAB: DASHBOARD OVERVIEW */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-8 animate-fade-up">
+                
+                {/* KYC Verification Lock Banner */}
+                {kycStatus === 'Not Uploaded' && (
+                  <div className="bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/25 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-soft animate-scale-in">
+                    <div className="space-y-2 max-w-xl text-left">
+                      <div className="flex items-center gap-2 text-amber-800 font-bold">
+                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                        <span className="font-display text-base">KYC Identity Documents Required</span>
                       </div>
+                      <p className="text-dark-600 text-xs leading-relaxed font-semibold">
+                        Your vendor profile listing is accepted by the administration! To comply with Marketplace Payout & Booking Policies, please upload your KYC identity verification documents (Aadhaar Front/Back and PAN Card) for review.
+                      </p>
+                      
+                      {/* Document file uploader elements */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
+                        <div className="p-3 bg-white/80 border border-dashed border-dark-200 rounded-xl flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-dark-500">Aadhaar Front</span>
+                          <span className="px-2 py-1 bg-sage-50 text-sage-750 text-[9px] font-black rounded cursor-pointer hover:bg-sage-100 transition-colors">Select File</span>
+                        </div>
+                        <div className="p-3 bg-white/80 border border-dashed border-dark-200 rounded-xl flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-dark-500">Aadhaar Back</span>
+                          <span className="px-2 py-1 bg-sage-50 text-sage-750 text-[9px] font-black rounded cursor-pointer hover:bg-sage-100 transition-colors">Select File</span>
+                        </div>
+                        <div className="p-3 bg-white/80 border border-dashed border-dark-200 rounded-xl flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-dark-500">PAN Card</span>
+                          <span className="px-2 py-1 bg-sage-50 text-sage-750 text-[9px] font-black rounded cursor-pointer hover:bg-sage-100 transition-colors">Select File</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const email = user?.email?.toLowerCase();
+                        if (email) {
+                          localStorage.setItem(`festivo_kyc_status_${email}`, 'Pending Verification');
+                        }
+                        setKycStatus('Pending Verification');
+                        showToast('KYC documents submitted. Pending admin verification.');
+                      }}
+                      className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl text-xs font-black shadow-md transition-all self-stretch md:self-auto flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Upload className="w-4 h-4" /> Submit Documents
+                    </button>
+                  </div>
+                )}
+
+                {kycStatus === 'Pending Verification' && (
+                  <div className="bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/25 rounded-3xl p-6 md:p-8 flex items-center gap-4 shadow-soft animate-scale-in text-left">
+                    <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center text-amber-600 shrink-0">
+                      <Clock className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-amber-850 font-display font-black text-sm">KYC Documents Under Review</h4>
+                      <p className="text-dark-600 text-xs font-semibold mt-1">
+                        Your identity verification documents have been submitted and are under compliance review. Once approved by the administrator, your dashboard navigation and features will be unlocked.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 1. Hero Summary Cards Section */}
+                <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  
+                  {/* Card 1: New Requests */}
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft hover:shadow-card hover:-translate-y-0.5 transition-all">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-dark-500 text-xs font-bold uppercase tracking-wider">New Requests</p>
+                        <h3 className="font-display font-black text-dark-900 text-3xl mt-2">{bookingRequests.length}</h3>
+                      </div>
+                      <div className="w-11 h-11 bg-sage-50 border border-sage-100 rounded-xl flex items-center justify-center text-sage-600">
+                        <MessageSquare className="w-5 h-5" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 mt-4 text-emerald-600 text-xs font-bold">
+                      <span>✓ Active requests ready</span>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Confirmed Bookings */}
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft hover:shadow-card hover:-translate-y-0.5 transition-all">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-dark-500 text-xs font-bold uppercase tracking-wider">Confirmed Bookings</p>
+                        <h3 className="font-display font-black text-dark-900 text-3xl mt-2">
+                          {bookings.filter(b => b.status === 'confirmed').length}
+                        </h3>
+                      </div>
+                      <div className="w-11 h-11 bg-sage-50 border border-sage-100 rounded-xl flex items-center justify-center text-sage-600">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 mt-4 text-dark-500 text-xs font-semibold">
+                      <span>📆 Next event: Aug 12</span>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Today's Earnings */}
+                  <div className="bg-gradient-brand rounded-2xl p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-bl-full pointer-events-none" />
+                    <div className="flex justify-between items-start relative z-10">
+                      <div>
+                        <p className="text-white/80 text-xs font-bold uppercase tracking-wider">Today's Earnings</p>
+                        <h3 className="font-display font-black text-white text-3xl mt-2">₹42,500</h3>
+                      </div>
+                      <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center text-gold-200">
+                        <DollarSign className="w-5 h-5" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 mt-4 text-gold-300 text-xs font-bold">
+                      <span>★ 15% Comm. paid</span>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Average Rating */}
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft hover:shadow-card hover:-translate-y-0.5 transition-all">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-dark-500 text-xs font-bold uppercase tracking-wider">Average Rating</p>
+                        <h3 className="font-display font-black text-dark-900 text-3xl mt-2">4.9</h3>
+                      </div>
+                      <div className="w-11 h-11 bg-gold-50 border border-gold-150 rounded-xl flex items-center justify-center text-gold-500">
+                        <Star className="w-5 h-5 fill-gold-500 text-gold-500" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 mt-4 text-gold-600 text-xs font-bold">
+                      <span>★ Top Rated Partner</span>
+                    </div>
+                  </div>
+
+                </section>
+
+                {/* 2. Main Two Column Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  
+                  {/* Left Column (70%) */}
+                  <div className="lg:col-span-2 space-y-8">
+                    
+                    {/* Upcoming Events Timeline */}
+                    <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="font-display font-black text-dark-900 text-lg">Upcoming Events</h3>
+                        <button 
+                          onClick={() => setActiveTab('bookings')}
+                          className="text-xs font-bold text-sage-600 hover:text-sage-800 flex items-center gap-1 transition-colors"
+                        >
+                          View all bookings <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      {bookings.length === 0 ? (
+                        <div className="text-center py-10 text-dark-400 text-sm">No upcoming events scheduled.</div>
+                      ) : (
+                        <div className="relative border-l border-dark-100 pl-6 ml-3 space-y-6">
+                          {bookings.map(b => (
+                            <div key={b.id} className="relative group">
+                              {/* Timeline indicator node */}
+                              <div className="absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white bg-sage-500 shadow-soft group-hover:scale-125 transition-transform" />
+                              
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-cream-50/50 hover:bg-cream-50 p-4 rounded-xl border border-cream-100 transition-all">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-dark-900">{b.customer_name}</span>
+                                    <span className="text-[10px] bg-sage-100 text-sage-700 font-bold px-2 py-0.5 rounded-full">
+                                      {b.event_type}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs font-semibold text-dark-500">
+                                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {b.event_date}</span>
+                                    <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Bangalore, KA</span>
+                                    <span className="col-span-2 text-sage-700 font-bold mt-1">Budget: ₹{b.total_amount.toLocaleString('en-IN')}</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => setSelectedBooking(b)}
+                                    className="px-3.5 py-2 bg-cream-200 hover:bg-cream-300 text-dark-800 rounded-xl text-xs font-bold transition-all h-11"
+                                  >
+                                    View Details
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      setSelectedChatUser(b.customer_email);
+                                      setActiveTab('messages');
+                                    }}
+                                    className="p-2.5 bg-sage-50 hover:bg-sage-100 border border-sage-100 text-sage-600 rounded-xl transition-all w-11 h-11 flex items-center justify-center"
+                                    title="Chat with Customer"
+                                  >
+                                    <MessageSquare className="w-4.5 h-4.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recent Booking Requests */}
+                    <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                      <div className="flex justify-between items-center mb-6">
+                        <div>
+                          <h3 className="font-display font-black text-dark-900 text-lg">Recent Booking Requests</h3>
+                          <p className="text-dark-500 text-xs font-semibold mt-0.5">Quickly accept or decline incoming offers.</p>
+                        </div>
+                        <span className="text-xs bg-sage-100 text-sage-700 font-bold px-2.5 py-1 rounded-full">
+                          {bookingRequests.length} Pending
+                        </span>
+                      </div>
+
+                      {bookingRequests.length === 0 ? (
+                        <div className="text-center py-10 bg-cream-50/50 rounded-2xl border border-dashed border-dark-200">
+                          <p className="text-dark-400 text-sm font-semibold">No booking requests pending.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {bookingRequests.map(req => (
+                            <div 
+                              key={req.id}
+                              className="bg-cream-50/70 hover:bg-cream-50 border border-cream-200 rounded-2xl p-5 shadow-soft transition-all flex flex-col justify-between"
+                            >
+                              <div>
+                                <div className="flex justify-between items-start gap-2">
+                                  <div>
+                                    <h4 className="font-bold text-dark-900 text-sm">{req.customer}</h4>
+                                    <p className="text-xs font-semibold text-sage-700 mt-0.5">{req.service}</p>
+                                  </div>
+                                  <span className="text-sm font-black text-dark-900">₹{req.budget.toLocaleString('en-IN')}</span>
+                                </div>
+
+                                <div className="mt-3.5 space-y-1.5 border-t border-dark-100 pt-3 text-xs font-semibold text-dark-500">
+                                  <p className="flex items-center gap-1.5">📆 {req.date}</p>
+                                  <p className="flex items-center gap-1.5">📍 {req.location}</p>
+                                  {req.note && (
+                                    <p className="bg-white/50 border border-dark-100 p-2 rounded-xl text-dark-600 text-[10px] leading-relaxed mt-2.5">
+                                      "{req.note}"
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 mt-5">
+                                <button 
+                                  onClick={() => handleBookingReject(req.id)}
+                                  className="h-11 border border-red-200 hover:bg-red-50 text-red-600 rounded-xl text-xs font-bold transition-all"
+                                >
+                                  Decline
+                                </button>
+                                <button 
+                                  onClick={() => handleBookingAccept(req.id)}
+                                  className="h-11 bg-sage-600 hover:bg-sage-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                                >
+                                  Accept
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  {/* Right Column (30%) */}
+                  <div className="space-y-8">
+                    
+                    {/* Availability Card */}
+                    <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                      <h3 className="font-display font-black text-dark-900 text-base mb-4">Availability Status</h3>
+                      <div className="flex items-center justify-between bg-cream-50 p-4 rounded-xl border border-cream-200">
+                        <div>
+                          <p className="text-xs font-bold text-dark-900">Accepting Bookings</p>
+                          <p className="text-dark-500 text-[10px] font-semibold mt-0.5">Toggle availability on explore directory.</p>
+                        </div>
+                        <button 
+                          onClick={handleToggleAvailability}
+                          className="text-sage-600 focus:outline-none"
+                        >
+                          {availabilityStatus ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10 text-dark-400" />}
+                        </button>
+                      </div>
+                      <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-dark-500">
+                        <span className={`w-2.5 h-2.5 rounded-full ${availabilityStatus ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                        <span>Status: {availabilityStatus ? 'Online & Available' : 'Offline / Bookings Paused'}</span>
+                      </div>
+                    </div>
+
+                    {/* Profile Completion Card */}
+                    <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="font-display font-black text-dark-900 text-base">Profile Setup</h3>
+                        <span className="text-xs font-black text-sage-600 bg-sage-50 px-2 py-0.5 rounded-full border border-sage-100">75% Done</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 mb-6">
+                        {/* Custom SVG Progress Ring */}
+                        <div className="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-full h-full transform -rotate-90">
+                            <circle cx="32" cy="32" r="26" fill="transparent" stroke="#f1f5f9" strokeWidth="5" />
+                            <circle cx="32" cy="32" r="26" fill="transparent" stroke="#5d8560" strokeWidth="5" strokeDasharray="163" strokeDashoffset="41" />
+                          </svg>
+                          <span className="absolute text-xs font-black text-sage-900">75%</span>
+                        </div>
+                        <div className="text-xs font-semibold text-dark-500">
+                          <p className="text-dark-800 font-bold">Complete your checklist</p>
+                          <p className="mt-0.5">Help customer book you faster with full document verification.</p>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         {[
-                          { label: 'View My Listings', action: () => navigate('/vendors') },
-                          { label: 'Manage Bookings', action: () => setActiveTab('bookings') },
-                          { label: 'Edit Profile', action: () => setActiveTab('profile') },
-                        ].map(({ label, action }) => (
-                          <button key={label} onClick={action} className="w-full flex items-center justify-between px-4 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-white text-sm font-semibold transition-colors group">
-                            {label}
-                            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                          { task: 'Upload Portfolio', done: true, tab: 'portfolio' },
+                          { task: 'Add Packages', done: true, tab: 'packages' },
+                          { task: 'Verify Documents', done: false, tab: 'settings' },
+                          { task: 'Bank Verification', done: false, tab: 'settings' }
+                        ].map((t, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setActiveTab(t.tab as any)}
+                            className="w-full flex items-center justify-between p-3 bg-cream-50/50 hover:bg-cream-50 rounded-xl border border-cream-100 text-left transition-colors"
+                          >
+                            <span className={`text-xs font-bold ${t.done ? 'text-dark-500 line-through' : 'text-dark-800'}`}>
+                              {t.task}
+                            </span>
+                            {t.done ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600 bg-emerald-50 rounded-full p-0.5" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5 text-dark-400" />
+                            )}
                           </button>
                         ))}
                       </div>
                     </div>
+
+                    {/* Today's Schedule Timeline */}
+                    <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                      <h3 className="font-display font-black text-dark-900 text-base mb-4">Today's Schedule</h3>
+                      <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-dark-100">
+                        
+                        {[
+                          { time: '10:00 AM', label: 'Wedding Shoot', desc: 'Amit & Priya Wedding Rituals', category: 'Wedding' },
+                          { time: '02:00 PM', label: 'Venue Walkthrough', desc: 'Pre-check decoration details at Leela Palace', category: 'General' },
+                          { time: '06:00 PM', label: 'Reception Coverage', desc: 'Capture entries and guest wishes', category: 'Reception' }
+                        ].map((s, idx) => (
+                          <div key={idx} className="relative pl-6">
+                            <div className="absolute left-[9px] top-1.5 w-2 h-2 rounded-full bg-sage-500 ring-4 ring-white" />
+                            <p className="text-[10px] font-bold text-sage-600 uppercase">{s.time}</p>
+                            <p className="text-xs font-bold text-dark-900 mt-0.5">{s.label}</p>
+                            <p className="text-[11px] text-dark-500 font-medium mt-0.5">{s.desc}</p>
+                          </div>
+                        ))}
+
+                      </div>
+                    </div>
+
+                    {/* Performance Card */}
+                    <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                      <h3 className="font-display font-black text-dark-900 text-base mb-4">Performance Statistics</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { label: 'Avg Rating', val: '4.9 ★', desc: 'Excellent' },
+                          { label: 'Completed Events', val: '84', desc: 'This Year' },
+                          { label: 'Response Time', val: '12 mins', desc: 'Very Fast' },
+                          { label: 'Repeat Customers', val: '24%', desc: 'Strong Loyalty' }
+                        ].map((stat, idx) => (
+                          <div key={idx} className="bg-cream-50 p-3.5 rounded-xl border border-cream-200">
+                            <p className="text-dark-500 text-[10px] font-bold uppercase tracking-wider">{stat.label}</p>
+                            <p className="font-display font-black text-sage-900 text-lg mt-1">{stat.val}</p>
+                            <p className="text-dark-400 text-[9px] font-medium mt-0.5">{stat.desc}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB: BOOKINGS LIST */}
+            {activeTab === 'bookings' && (
+              <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft space-y-6 animate-fade-up">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-display font-black text-dark-900 text-lg">All Bookings</h3>
+                    <p className="text-dark-500 text-xs font-medium">Browse confirmed bookings and past orders.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="px-3.5 py-1.5 bg-sage-600 text-white rounded-xl text-xs font-bold shadow-soft">
+                      All
+                    </button>
+                    <button className="px-3.5 py-1.5 bg-cream-100 hover:bg-cream-200 text-dark-700 rounded-xl text-xs font-bold">
+                      Confirmed
+                    </button>
+                    <button className="px-3.5 py-1.5 bg-cream-100 hover:bg-cream-200 text-dark-700 rounded-xl text-xs font-bold">
+                      Pending
+                    </button>
                   </div>
                 </div>
-              )}
-            </>
-          )}
 
-          {activeTab === 'bookings' && (
-            <div className="bg-white rounded-2xl shadow-card p-6">
-              <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-sage-500" /> All Bookings ({bookings.length})
-              </h2>
-              {bookings.length === 0 ? (
-                <div className="text-center py-16">
-                  <Calendar className="w-12 h-12 text-sage-300 mx-auto mb-4" />
-                  <p className="font-display text-xl font-bold text-sage-900 mb-2">No bookings yet</p>
-                  <p className="text-dark-500">Bookings from customers will appear here.</p>
-                </div>
-              ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-sage-100">
-                        {['Ref', 'Customer', 'Event', 'Date', 'Guests', 'Amount', 'Status'].map(h => (
-                          <th key={h} className="pb-3 text-left text-dark-500 text-xs font-bold uppercase tracking-wider pr-4">{h}</th>
-                        ))}
+                      <tr className="border-b border-dark-100 text-dark-400 text-xs font-bold uppercase tracking-wider">
+                        <th className="pb-3 font-bold">Ref No.</th>
+                        <th className="pb-3 font-bold">Customer</th>
+                        <th className="pb-3 font-bold">Service</th>
+                        <th className="pb-3 font-bold">Date</th>
+                        <th className="pb-3 font-bold text-right">Budget</th>
+                        <th className="pb-3 font-bold text-center">Status</th>
+                        <th className="pb-3 font-bold text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-sage-50">
-                      {bookings.map(b => (
-                        <tr key={b.id} className="hover:bg-sage-50/50 transition-colors">
-                          <td className="py-4 pr-4 font-mono text-xs text-dark-500">{b.booking_ref}</td>
-                          <td className="py-4 pr-4">
-                            <p className="font-bold text-sage-900 text-sm">{b.customer_name}</p>
-                            <p className="text-dark-400 text-xs">{b.customer_email}</p>
-                          </td>
-                          <td className="py-4 pr-4 text-sm text-dark-700">{b.event_type}</td>
-                          <td className="py-4 pr-4 text-sm text-dark-700">{new Date(b.event_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                          <td className="py-4 pr-4 text-sm text-dark-700">{b.guests}</td>
-                          <td className="py-4 pr-4 font-bold text-sage-900 text-sm">₹{b.total_amount.toLocaleString('en-IN')}</td>
+                    <tbody className="divide-y divide-dark-100 text-sm">
+                      {filteredBookings.map(b => (
+                        <tr key={b.id} className="hover:bg-cream-50/50 transition-colors">
+                          <td className="py-4 font-bold text-dark-900">{b.booking_ref}</td>
                           <td className="py-4">
-                            <div className="flex flex-col gap-1.5">
-                              {statusBadge(b.status)}
-                              {b.status === 'pending' && (
-                                <div className="flex gap-1.5">
-                                  <button
-                                    onClick={() => updateBookingStatus(b.id, 'confirmed')}
-                                    disabled={actionLoading === b.id}
-                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-gradient-brand rounded-lg hover:shadow-glow transition-all disabled:opacity-50"
-                                  >
-                                    <Check className="w-3 h-3" /> Accept
-                                  </button>
-                                  <button
-                                    onClick={() => updateBookingStatus(b.id, 'cancelled')}
-                                    disabled={actionLoading === b.id}
-                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-cream-800 bg-cream-200 hover:bg-cream-300 rounded-lg transition-all disabled:opacity-50"
-                                  >
-                                    <X className="w-3 h-3" /> Reject
-                                  </button>
-                                </div>
-                              )}
-                              {actionLoading === b.id && (
-                                <div className="flex items-center gap-1 text-xs text-dark-400"><RefreshCw className="w-3 h-3 animate-spin" /> Updating...</div>
-                              )}
-                              {actionMsg?.id === b.id && (
-                                <div className={`text-xs font-bold ${actionMsg.type === 'success' ? 'text-sage-600' : 'text-red-600'}`}>{actionMsg.text}</div>
-                              )}
+                            <div>
+                              <p className="font-bold text-dark-800">{b.customer_name}</p>
+                              <p className="text-[11px] text-dark-400 font-semibold">{b.customer_email}</p>
                             </div>
+                          </td>
+                          <td className="py-4 font-semibold text-dark-700">{b.event_type}</td>
+                          <td className="py-4 font-semibold text-dark-600">{b.event_date}</td>
+                          <td className="py-4 text-right font-black text-dark-900">₹{b.total_amount.toLocaleString('en-IN')}</td>
+                          <td className="py-4 text-center">
+                            <span className={`inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
+                              b.status === 'confirmed' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}>
+                              {b.status}
+                            </span>
+                          </td>
+                          <td className="py-4 text-right">
+                            <button 
+                              onClick={() => setSelectedBooking(b)}
+                              className="px-3 py-1.5 bg-cream-100 hover:bg-cream-200 text-dark-700 text-xs font-bold rounded-lg transition-all"
+                            >
+                              Details
+                            </button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {activeTab === 'earnings' && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: 'Total Earnings', value: `₹${totalEarnings.toLocaleString('en-IN')}`, icon: Wallet, color: 'bg-sage-50 text-sage-600' },
-                  { label: 'This Month', value: `₹${thisMonthEarnings.toLocaleString('en-IN')}`, icon: TrendingUp, color: 'bg-sage-100 text-sage-700' },
-                  { label: 'Pending Payout', value: `₹${pendingPayout.toLocaleString('en-IN')}`, icon: Clock, color: 'bg-gold-100 text-gold-700' },
-                  { label: 'Commission Paid', value: `₹${commissionPaid.toLocaleString('en-IN')}`, icon: BarChart3, color: 'bg-cream-100 text-cream-800' },
-                ].map(stat => (
-                  <div key={stat.label} className="bg-white rounded-2xl shadow-card p-5 card-hover">
-                    <div className={`w-10 h-10 ${stat.color} rounded-xl flex items-center justify-center mb-3`}>
-                      <stat.icon className="w-5 h-5" />
+            {/* TAB: CALENDAR VIEW */}
+            {activeTab === 'calendar' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-up">
+                
+                {/* Month Calendar Grid Card */}
+                <div className="lg:col-span-2 bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-display font-black text-dark-900 text-lg">{currentMonth.name}</h3>
+                    <div className="flex items-center gap-1.5">
+                      <button className="p-1 bg-cream-100 hover:bg-cream-200 rounded-lg text-dark-600 text-xs font-bold">&larr;</button>
+                      <button className="p-1 bg-cream-100 hover:bg-cream-200 rounded-lg text-dark-600 text-xs font-bold">&rarr;</button>
                     </div>
-                    <p className="font-display text-2xl font-bold text-sage-900">{stat.value}</p>
-                    <p className="text-dark-500 text-sm mt-0.5">{stat.label}</p>
                   </div>
-                ))}
-              </div>
 
-              <div className="bg-white rounded-2xl shadow-card p-6">
-                <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-sage-500" /> Monthly Earnings (Last 6 Months)
-                </h2>
-                <div className="flex items-end justify-between gap-3 h-56">
-                  {monthlyEarnings.map((m, i) => {
-                    const barHeight = Math.max((m.amount / maxEarning) * 100, 4);
-                    return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                      <div className="w-full flex items-end justify-center" style={{ height: '180px' }}>
-                        <div
-                          className="w-full max-w-[48px] bg-gradient-to-t from-sage-600 to-sage-400 rounded-t-lg transition-all hover:from-sage-700 hover:to-sage-500"
-                          style={{ height: barHeight + '%' }}
-                          title={'₹' + m.amount.toLocaleString('en-IN')}
-                        />
-                      </div>
-                      <p className="text-xs font-bold text-sage-900">₹{(m.amount / 1000).toFixed(0)}K</p>
-                      <p className="text-xs text-dark-400">{m.label}</p>
-                    </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-card p-6">
-                <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-sage-500" /> Payout Breakdown
-                </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-sage-100">
-                        {['Period', 'Bookings', 'Gross', 'Commission (15%)', 'Net Payout', 'Status'].map(h => (
-                          <th key={h} className="pb-3 text-left text-dark-500 text-xs font-bold uppercase tracking-wider pr-4">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-sage-50">
-                      {monthlyEarnings.map((m, i) => {
-                        const monthBookings = paidBookings.filter(b => {
-                          const bd = new Date(b.created_at);
-                          const md = new Date();
-                          md.setMonth(md.getMonth() - (5 - i));
-                          return bd.getMonth() === md.getMonth() && bd.getFullYear() === md.getFullYear();
-                        });
-                        const gross = m.amount;
-                        const commission = Math.round(gross * 0.15);
-                        const net = gross - commission;
-                        return (
-                          <tr key={i} className="hover:bg-sage-50/50 transition-colors">
-                            <td className="py-4 pr-4 font-bold text-sage-900 text-sm">{m.label}</td>
-                            <td className="py-4 pr-4 text-sm text-dark-700">{monthBookings.length}</td>
-                            <td className="py-4 pr-4 text-sm text-dark-700">₹{gross.toLocaleString('en-IN')}</td>
-                            <td className="py-4 pr-4 text-sm text-cream-800 font-semibold">₹{commission.toLocaleString('en-IN')}</td>
-                            <td className="py-4 pr-4 font-bold text-sage-900 text-sm">₹{net.toLocaleString('en-IN')}</td>
-                            <td className="py-4">{gross > 0 ? <span className="text-xs font-bold text-sage-700 bg-sage-100 px-2 py-1 rounded-full">Paid</span> : <span className="text-xs font-bold text-dark-400 bg-cream-100 px-2 py-1 rounded-full">—</span>}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'analytics' && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: 'Total Views', value: totalViews.toLocaleString('en-IN'), icon: Eye, color: 'bg-sage-50 text-sage-600' },
-                  { label: 'Conversion Rate', value: conversionRate + '%', icon: TrendingUp, color: 'bg-sage-100 text-sage-700' },
-                  { label: 'Avg Order Value', value: '₹' + avgOrderValue.toLocaleString('en-IN'), icon: Wallet, color: 'bg-cream-100 text-cream-800' },
-                  { label: 'Repeat Customers', value: repeatRate + '%', icon: Users, color: 'bg-gold-100 text-gold-700' },
-                ].map(stat => (
-                  <div key={stat.label} className="bg-white rounded-2xl shadow-card p-5 card-hover">
-                    <div className={`w-10 h-10 ${stat.color} rounded-xl flex items-center justify-center mb-3`}>
-                      <stat.icon className="w-5 h-5" />
-                    </div>
-                    <p className="font-display text-2xl font-bold text-sage-900">{stat.value}</p>
-                    <p className="text-dark-500 text-sm mt-0.5">{stat.label}</p>
+                  <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-dark-400 mb-2">
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                    <div>Sun</div>
                   </div>
-                ))}
-              </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white rounded-2xl shadow-card p-6">
-                  <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                    <PieChart className="w-5 h-5 text-sage-500" /> Category Distribution
-                  </h2>
-                  {categoryEntries.length === 0 ? (
-                    <p className="text-dark-400 text-sm text-center py-8">No listings yet</p>
-                  ) : (
-                    <div className="flex flex-col items-center gap-6">
-                      <div
-                        className="w-44 h-44 rounded-full shadow-card"
-                        style={{ background: 'conic-gradient(' + pieGradient + ')' }}
-                      />
-                      <div className="w-full space-y-2">
-                        {categoryPercents.map(c => (
-                          <div key={c.cat} className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${c.color}`} />
-                            <span className="text-sm font-semibold text-sage-900 flex-1">{c.cat}</span>
-                            <span className="text-sm text-dark-500">{c.count} ({c.pct.toFixed(0)}%)</span>
+                  <div className="grid grid-cols-7 gap-2">
+                    {/* Padding cells */}
+                    {Array.from({ length: currentMonth.offset }).map((_, i) => (
+                      <div key={`empty-${i}`} className="aspect-square bg-cream-50/50 rounded-xl" />
+                    ))}
+
+                    {/* Month cells */}
+                    {Array.from({ length: currentMonth.days }).map((_, i) => {
+                      const dayNo = i + 1;
+                      const dateStr = `2026-08-${String(dayNo).padStart(2, '0')}`;
+                      const isBlocked = availability[dateStr] === false;
+                      const dateBookings = bookings.filter(b => b.event_date === dateStr);
+                      const hasBooking = dateBookings.length > 0;
+
+                      return (
+                        <div 
+                          key={dayNo} 
+                          onClick={() => handleToggleDateAvailability(dateStr)}
+                          className={`
+                            aspect-square rounded-xl p-2 cursor-pointer transition-all flex flex-col justify-between border relative group
+                            ${hasBooking 
+                              ? 'bg-sage-50 border-sage-200 text-sage-950 font-bold' 
+                              : isBlocked 
+                                ? 'bg-red-50 border-red-100 text-red-700' 
+                                : 'bg-white border-dark-100 text-dark-800 hover:bg-cream-100'
+                            }
+                          `}
+                        >
+                          <span className="text-xs">{dayNo}</span>
+                          <div className="flex flex-col gap-0.5 items-center w-full">
+                            {hasBooking && (
+                              <span className="w-1.5 h-1.5 bg-sage-600 rounded-full" title="Booked Event" />
+                            )}
+                            {isBlocked && !hasBooking && (
+                              <span className="text-[7px] font-black uppercase text-red-500">Blocked</span>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+
+                          {/* Hover tooltip */}
+                          <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 bg-dark-900 text-white text-[9px] p-2 rounded-lg shadow-card z-50 w-24 pointer-events-none mb-1">
+                            {hasBooking 
+                              ? `Event: ${dateBookings[0].customer_name}` 
+                              : isBlocked 
+                                ? 'Date Blocked' 
+                                : 'Available'
+                            }
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-card p-6">
-                  <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                    <Smile className="w-5 h-5 text-gold-500" /> Customer Satisfaction
-                  </h2>
-                  <div className="flex flex-col items-center gap-4 py-4">
-                    <p className="font-display text-5xl font-bold text-sage-900">{avgSatisfaction.toFixed(1)}</p>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map(n => (
-                        <Star key={n} className={`w-6 h-6 ${n <= Math.round(avgSatisfaction) ? 'text-gold-500 fill-gold-500' : 'text-cream-200'}`} />
+                {/* Calendar Detail Side Panel */}
+                <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft space-y-6">
+                  <div>
+                    <h3 className="font-display font-black text-dark-900 text-base">Calendar Legend</h3>
+                    <p className="text-dark-500 text-xs font-semibold mt-0.5">Click any calendar cell to block/unblock dates instantly.</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-cream-50 rounded-xl border border-cream-200">
+                      <span className="w-4 h-4 bg-white border border-dark-150 rounded-md" />
+                      <span className="text-xs font-bold text-dark-800">Available Slots (Default)</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-150 rounded-xl">
+                      <span className="w-4 h-4 bg-red-500 rounded-md" />
+                      <span className="text-xs font-bold text-red-700">Blocked Dates (Vacation/Off)</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-sage-50 border border-sage-150 rounded-xl">
+                      <span className="w-4 h-4 bg-sage-600 rounded-md" />
+                      <span className="text-xs font-bold text-sage-800">Booked Event Slots</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-dark-100 pt-6">
+                    <h4 className="font-bold text-dark-900 text-sm mb-3">Scheduled Dates This Month</h4>
+                    <div className="space-y-3">
+                      {bookings.map(b => (
+                        <div key={b.id} className="p-3 bg-cream-50/50 rounded-xl border border-cream-100 flex justify-between items-center text-xs">
+                          <div>
+                            <p className="font-bold text-dark-900">{b.customer_name}</p>
+                            <p className="text-dark-500 text-[10px] font-semibold mt-0.5">{b.event_type}</p>
+                          </div>
+                          <span className="font-bold text-sage-700 bg-sage-100 px-2 py-0.5 rounded-full">{b.event_date}</span>
+                        </div>
                       ))}
                     </div>
-                    <div className="w-full bg-cream-100 rounded-full h-3 overflow-hidden">
-                      <div className="h-full bg-gradient-brand rounded-full transition-all" style={{ width: satisfactionPct + '%' }} />
-                    </div>
-                    <p className="text-sm text-dark-500">Based on {vendors.reduce((s, v) => s + v.reviews, 0)} reviews</p>
                   </div>
                 </div>
+
               </div>
+            )}
 
-              <div className="bg-white rounded-2xl shadow-card p-6">
-                <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-sage-500" /> Top Performing Listings
-                </h2>
-                {topListings.length === 0 ? (
-                  <p className="text-dark-400 text-sm text-center py-8">No listings yet</p>
-                ) : (
-                  <div className="space-y-3">
-                    {topListings.map((l, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 bg-sage-50/60 rounded-xl hover:bg-sage-100/60 transition-colors">
-                        <div className="w-8 h-8 bg-gradient-brand rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                          {i + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sage-900 text-sm truncate">{l.name}</p>
-                          <p className="text-dark-400 text-xs">{l.category}</p>
-                        </div>
-                        <div className="flex items-center gap-1 text-dark-500 text-xs">
-                          <Eye className="w-3.5 h-3.5" /> {l.views.toLocaleString('en-IN')}
-                        </div>
-                        <div className="flex items-center gap-1 text-dark-500 text-xs w-16">
-                          <Calendar className="w-3.5 h-3.5" /> {l.bookings}
-                        </div>
-                        <div className="flex items-center gap-1 text-gold-600 text-xs font-semibold w-12">
-                          <Star className="w-3.5 h-3.5 fill-gold-500" /> {l.rating}
-                        </div>
-                      </div>
-                    ))}
+            {/* TAB: MESSAGES / CHAT */}
+            {activeTab === 'messages' && (
+              <div className="bg-white border border-dark-100 rounded-2xl p-0 shadow-soft h-[600px] overflow-hidden flex animate-fade-up">
+                
+                {/* Chat Customer selection panel (Left) */}
+                <div className="w-80 border-r border-dark-100 flex flex-col">
+                  <div className="p-4 border-b border-dark-100">
+                    <h3 className="font-display font-black text-dark-900 text-base">Direct Messages</h3>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'services' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-xl font-bold text-sage-900 flex items-center gap-2">
-                  <Package className="w-5 h-5 text-sage-500" /> Services & Packages
-                </h2>
-                <button
-                  onClick={() => setShowServiceForm(s => !s)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow transition-all text-sm"
-                >
-                  <Plus className="w-4 h-4" /> Add Package
-                </button>
-              </div>
-
-              {showServiceForm && (
-                <div className="bg-white rounded-2xl shadow-card p-6">
-                  <h3 className="font-display text-lg font-bold text-sage-900 mb-4">New Package</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5">Title</label>
-                      <input
-                        type="text"
-                        value={serviceForm.title}
-                        onChange={e => setServiceForm(s => ({ ...s, title: e.target.value }))}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="e.g. Premium Wedding Photography"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5">Price (₹)</label>
-                      <input
-                        type="number"
-                        value={serviceForm.price}
-                        onChange={e => setServiceForm(s => ({ ...s, price: e.target.value }))}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="49999"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5">Description</label>
-                      <textarea
-                        value={serviceForm.description}
-                        onChange={e => setServiceForm(s => ({ ...s, description: e.target.value }))}
-                        rows={2}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="What's included in this package..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5">Duration</label>
-                      <input
-                        type="text"
-                        value={serviceForm.duration}
-                        onChange={e => setServiceForm(s => ({ ...s, duration: e.target.value }))}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="e.g. 8 hours"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-dark-700 font-bold text-sm mb-1.5">Includes (comma-separated)</label>
-                      <input
-                        type="text"
-                        value={serviceForm.includes}
-                        onChange={e => setServiceForm(s => ({ ...s, includes: e.target.value }))}
-                        className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                        placeholder="Album, Drone, Prints"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-5">
-                    <button
-                      onClick={handleAddService}
-                      disabled={serviceLoading || !serviceForm.title}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow transition-all text-sm disabled:opacity-50"
-                    >
-                      {serviceLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Save Package
-                    </button>
-                    <button
-                      onClick={() => setShowServiceForm(false)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 border border-cream-300 text-cream-800 font-bold rounded-xl hover:bg-cream-100 transition-all text-sm"
-                    >
-                      <X className="w-4 h-4" /> Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {services.length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-card p-12 text-center">
-                  <div className="w-20 h-20 bg-sage-100 rounded-full flex items-center justify-center mx-auto mb-5">
-                    <Package className="w-10 h-10 text-sage-600" />
-                  </div>
-                  <h3 className="font-display text-2xl font-bold text-sage-900 mb-2">No packages yet</h3>
-                  <p className="text-dark-500 max-w-sm mx-auto">Create service packages to showcase what you offer to customers.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {services.map(svc => (
-                    <div key={svc.id} className="bg-white rounded-2xl shadow-card p-5 card-hover">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="w-10 h-10 bg-sage-50 text-sage-600 rounded-xl flex items-center justify-center">
-                          <Package className="w-5 h-5" />
-                        </div>
+                  <div className="flex-1 overflow-y-auto divide-y divide-dark-100">
+                    {chatUsers.map(u => {
+                      const isSelected = selectedChatUser === u.email;
+                      return (
                         <button
-                          onClick={() => handleDeleteService(svc.id)}
-                          className="w-8 h-8 flex items-center justify-center text-cream-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          key={u.email}
+                          onClick={() => setSelectedChatUser(u.email)}
+                          className={`w-full p-4 text-left flex justify-between items-start transition-colors ${
+                            isSelected ? 'bg-cream-100' : 'hover:bg-cream-50/50'
+                          }`}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <div className="min-w-0">
+                            <p className="font-bold text-dark-900 text-sm truncate">{u.name}</p>
+                            <p className="text-xs text-dark-500 truncate mt-0.5 font-medium">{u.lastMsg}</p>
+                          </div>
+                          {u.unread > 0 && (
+                            <span className="text-[10px] font-bold text-white bg-sage-600 px-2 py-0.5 rounded-full">
+                              {u.unread}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Main Chat bubbles window (Right) */}
+                <div className="flex-1 flex flex-col h-full bg-cream-50/30">
+                  
+                  {/* Chat User Header */}
+                  <div className="h-16 border-b border-dark-100 bg-white px-6 flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-dark-900 text-sm">
+                        {chatUsers.find(u => u.email === selectedChatUser)?.name || selectedChatUser}
+                      </p>
+                      <p className="text-[10px] text-dark-500 font-semibold">{selectedChatUser}</p>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" /> Online
+                    </span>
+                  </div>
+
+                  {/* Message History list */}
+                  <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+                    {messages
+                      .filter(m => m.customer_email === selectedChatUser)
+                      .map((msg, index) => {
+                        const isVendor = msg.sender_type === 'vendor';
+                        return (
+                          <div key={index} className={`flex ${isVendor ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-md p-4 rounded-2xl shadow-soft text-sm font-medium ${
+                              isVendor 
+                                ? 'bg-sage-600 text-white rounded-tr-none' 
+                                : 'bg-white border border-dark-100 text-dark-800 rounded-tl-none'
+                            }`}>
+                              <p className="leading-relaxed">{msg.message}</p>
+                              <p className={`text-[9px] mt-2 text-right ${isVendor ? 'text-white/70' : 'text-dark-400'}`}>
+                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Chat input box */}
+                  <div className="p-4 border-t border-dark-100 bg-white flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Type your reply..."
+                      value={newMessageText}
+                      onChange={(e) => setNewMessageText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                      className="flex-1 bg-cream-50 border border-dark-100 rounded-2xl px-4 py-3 text-sm font-medium outline-none text-dark-800 placeholder-dark-400 focus:border-sage-300 transition-all"
+                    />
+                    <button 
+                      onClick={handleSendMessage}
+                      className="w-12 h-12 bg-sage-600 hover:bg-sage-700 text-white rounded-2xl flex items-center justify-center transition-colors shadow-soft"
+                    >
+                      <Send className="w-4.5 h-4.5" />
+                    </button>
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB: PORTFOLIO SECTION */}
+            {activeTab === 'portfolio' && (
+              <div className="space-y-6 animate-fade-up">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                  <div>
+                    <h3 className="font-display font-black text-dark-900 text-lg">Portfolio Preview Gallery</h3>
+                    <p className="text-dark-500 text-xs font-semibold mt-0.5">Showcase your best clicks to event planners visiting your profile.</p>
+                  </div>
+                  <button 
+                    onClick={handleUploadPortfolio}
+                    className="h-11 bg-gradient-brand text-white hover:opacity-95 rounded-xl px-6 text-xs font-black shadow-md flex items-center gap-1.5 transition-all"
+                  >
+                    <Plus className="w-4.5 h-4.5" /> Upload Portfolio Image
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  {portfolio.map((img, idx) => (
+                    <div 
+                      key={idx} 
+                      className="bg-white border border-dark-100 rounded-2xl overflow-hidden shadow-soft group hover:shadow-card hover:-translate-y-0.5 transition-all relative aspect-video"
+                    >
+                      <img 
+                        src={img} 
+                        alt={`Portfolio sample ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-dark-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => {
+                            setPortfolio(prev => prev.filter((_, i) => i !== idx));
+                            showToast('Portfolio image removed.', 'error');
+                          }}
+                          className="w-10 h-10 bg-white/95 rounded-xl flex items-center justify-center text-red-600 shadow-soft hover:bg-white"
+                          title="Delete photo"
+                        >
+                          <Trash2 className="w-4.5 h-4.5" />
                         </button>
                       </div>
-                      <h3 className="font-display text-lg font-bold text-sage-900 mb-1">{svc.title}</h3>
-                      <p className="text-dark-500 text-sm mb-3 line-clamp-2">{svc.description}</p>
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="font-display text-xl font-bold text-sage-900">₹{svc.price?.toLocaleString('en-IN')}</span>
-                        <span className="text-dark-400 text-xs flex items-center gap-1"><Clock className="w-3 h-3" /> {svc.duration}</span>
-                      </div>
-                      {svc.includes && svc.includes.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {svc.includes.map((inc, i) => (
-                            <span key={i} className="text-xs font-semibold text-sage-700 bg-sage-100 px-2 py-1 rounded-full">{inc}</span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'availability' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-xl font-bold text-sage-900 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-sage-500" /> Set Availability
-                </h2>
-                {availabilityLoading && <RefreshCw className="w-4 h-4 text-sage-500 animate-spin" />}
               </div>
-              <p className="text-dark-500 text-sm">Toggle your availability for the next 30 days. Green = Available, Red = Booked.</p>
+            )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {Array.from({ length: 30 }).map((_, i) => {
-                  const d = new Date();
-                  d.setDate(d.getDate() + i);
-                  const dateKey = d.toISOString().split('T')[0];
-                  const isAvailable = availabilityMap[dateKey] ?? true;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => toggleAvailability(dateKey)}
-                      className={`rounded-2xl p-4 text-left transition-all card-hover ${
-                        isAvailable
-                          ? 'bg-sage-50 border-2 border-sage-200 hover:border-sage-500'
-                          : 'bg-red-50 border-2 border-red-200 hover:border-red-500'
-                      }`}
-                    >
-                      <p className={`font-display text-2xl font-bold ${isAvailable ? 'text-sage-900' : 'text-red-900'}`}>
-                        {d.getDate()}
-                      </p>
-                      <p className={`text-xs font-semibold mb-2 ${isAvailable ? 'text-sage-700' : 'text-red-700'}`}>
-                        {d.toLocaleDateString('en-IN', { month: 'short' })}
-                      </p>
-                      <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
-                        isAvailable ? 'bg-sage-200 text-sage-800' : 'bg-red-200 text-red-800'
-                      }`}>
-                        {isAvailable ? <><Check className="w-3 h-3" /> Available</> : <><X className="w-3 h-3" /> Booked</>}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'chat' && (
-            <div className="bg-white rounded-2xl shadow-card p-6">
-              <h2 className="font-display text-xl font-bold text-sage-900 mb-6 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-sage-500" /> Customer Chat
-              </h2>
-              {messages.length === 0 ? (
-                <div className="text-center py-16">
-                  <MessageSquare className="w-12 h-12 text-sage-300 mx-auto mb-4" />
-                  <p className="font-display text-xl font-bold text-sage-900 mb-2">No messages yet</p>
-                  <p className="text-dark-500">When customers message you, conversations will appear here.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[60vh]">
-                  {/* Conversation list */}
-                  <div className="md:col-span-1 border border-sage-100 rounded-xl overflow-y-auto">
-                    {Object.entries(
-                      messages.reduce((acc, m) => {
-                        (acc[m.customer_email] = acc[m.customer_email] || []).push(m);
-                        return acc;
-                      }, {} as Record<string, ChatMessage[]>)
-                    ).map(([email, msgs]) => (
-                      <button
-                        key={email}
-                        onClick={() => setSelectedCustomer(email)}
-                        className={`w-full text-left p-4 border-b border-sage-50 transition-colors ${
-                          selectedCustomer === email ? 'bg-sage-100' : 'hover:bg-sage-50/60'
-                        }`}
-                      >
-                        <p className="font-bold text-sage-900 text-sm truncate">{email}</p>
-                        <p className="text-dark-400 text-xs truncate">{msgs[msgs.length - 1]?.message}</p>
-                      </button>
-                    ))}
+            {/* TAB: PACKAGES SECTION */}
+            {activeTab === 'packages' && (
+              <div className="space-y-6 animate-fade-up">
+                
+                {/* Header listing */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                  <div>
+                    <h3 className="font-display font-black text-dark-900 text-lg">Services & Pricing Packages</h3>
+                    <p className="text-dark-500 text-xs font-semibold mt-0.5">Manage your standard pricing plans offered on public search listing.</p>
                   </div>
-
-                  {/* Message panel */}
-                  <div className="md:col-span-2 flex flex-col border border-sage-100 rounded-xl">
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                      {messages
-                        .filter(m => m.customer_email === selectedCustomer)
-                        .map(m => (
-                          <div
-                            key={m.id}
-                            className={`flex ${m.sender_type === 'vendor' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div
-                              className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
-                                m.sender_type === 'vendor'
-                                  ? 'bg-gradient-brand text-white rounded-br-sm'
-                                  : 'bg-sage-100 text-sage-900 rounded-bl-sm'
-                              }`}
-                            >
-                              {m.message}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                    <div className="p-4 border-t border-sage-100 flex gap-2">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={e => setNewMessage(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleSendMessage(); }}
-                        placeholder="Type a message..."
-                        className="flex-1 px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                      />
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={!newMessage.trim()}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow transition-all text-sm disabled:opacity-50"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'profile' && (
-            <div className="max-w-7xl mx-auto space-y-6">
-              {!primaryVendor ? (
-                <div className="bg-white rounded-3xl p-12 text-center border border-sage-100 shadow-soft">
-                  <div className="w-20 h-20 bg-sage-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Building2 className="w-10 h-10 text-sage-600" />
-                  </div>
-                  <h3 className="font-display text-2xl font-bold text-sage-900 mb-3">No Active Business Profile</h3>
-                  <p className="text-dark-500 max-w-md mx-auto mb-8 leading-relaxed">
-                    You have not registered a business profile on Festivo yet. Complete your business setup to activate your public profile, list services, and start accepting client bookings.
-                  </p>
-                  <button
-                    onClick={() => navigate('/vendor-registration')}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-brand text-white font-bold rounded-xl hover:shadow-glow transition-all"
+                  <button 
+                    onClick={() => setShowPackageForm(!showPackageForm)}
+                    className="h-11 bg-gradient-brand text-white rounded-xl px-6 text-xs font-black shadow-md flex items-center gap-1.5 transition-all"
                   >
-                    <Plus className="w-4 h-4" /> Setup Business Profile
+                    <Plus className="w-4.5 h-4.5" /> Add New Package
                   </button>
                 </div>
-              ) : (
-                <>
-                  {!isEditingProfile ? (
-                /* PUBLIC PROFILE PREVIEW MODE */
-                <div className="space-y-6 animate-fade-in">
-                  {/* Hex/Mesh Gradient Banner */}
-                  <div className="bg-gradient-to-r from-sage-900 to-sage-800 text-white rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-card border border-white/5">
-                    {/* Background hexagons grid pattern and mesh glow */}
-                    <div 
-                      className="absolute inset-0 opacity-15 pointer-events-none"
-                      style={{
-                        backgroundImage: `
-                          radial-gradient(circle at 20% 30%, rgba(70, 107, 72, 0.25) 0%, transparent 50%),
-                          radial-gradient(circle at 80% 70%, rgba(193, 147, 80, 0.2) 0%, transparent 50%),
-                          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)
-                        `,
-                        backgroundSize: '100% 100%, 100% 100%, 20px 20px, 20px 20px'
-                      }}
-                    />
+
+                {/* Form to add package */}
+                {showPackageForm && (
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft space-y-4 animate-scale-in">
+                    <h4 className="font-display font-black text-dark-900 text-sm">Add Pricing Package</h4>
                     
-                    <div className="relative flex flex-col md:flex-row items-start justify-between gap-6 z-10">
-                      {/* Left: Avatar, Name, Category and Details */}
-                      <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
-                        {/* Circle Initial Avatar */}
-                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-sage-600 border-4 border-sage-500/30 flex items-center justify-center text-white text-3xl md:text-4xl font-display font-extrabold shadow-glow shrink-0">
-                          {primaryVendor.name ? primaryVendor.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() : 'V'}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Package Title</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Wedding Cinematic Premium"
+                          value={packageForm.title}
+                          onChange={(e) => setPackageForm({ ...packageForm, title: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Pricing (INR)</label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 75000"
+                          value={packageForm.price}
+                          onChange={(e) => setPackageForm({ ...packageForm, price: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Duration</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 6 Hours / Full Day"
+                          value={packageForm.duration}
+                          onChange={(e) => setPackageForm({ ...packageForm, duration: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Includes (Comma-separated)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 1 Photographer, Candid teaser, Digital Album"
+                          value={packageForm.includes}
+                          onChange={(e) => setPackageForm({ ...packageForm, includes: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Description</label>
+                        <textarea
+                          placeholder="Briefly state what this package is best suited for..."
+                          value={packageForm.description}
+                          onChange={(e) => setPackageForm({ ...packageForm, description: e.target.value })}
+                          rows={3}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <button 
+                        onClick={() => setShowPackageForm(false)}
+                        className="px-4 py-2 bg-cream-200 text-dark-700 font-bold rounded-xl text-xs"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={handleAddPackage}
+                        className="px-6 py-2 bg-sage-600 hover:bg-sage-700 text-white font-bold rounded-xl text-xs"
+                      >
+                        Create Package
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cards List */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {services.map(pkg => (
+                    <div 
+                      key={pkg.id}
+                      className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft flex flex-col justify-between hover:shadow-card hover:-translate-y-0.5 transition-all"
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-4">
+                          <h4 className="font-display font-black text-dark-900 text-base">{pkg.title}</h4>
+                          <span className="text-[10px] font-bold text-sage-600 bg-sage-50 px-2.5 py-0.5 rounded-full border border-sage-100">
+                            {pkg.duration}
+                          </span>
                         </div>
+                        <p className="text-xs font-black text-dark-900 text-lg">₹{pkg.price.toLocaleString('en-IN')}</p>
+                        <p className="text-dark-500 text-[11px] leading-relaxed mt-2.5 font-medium mb-4">{pkg.description}</p>
                         
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">
-                              {primaryVendor.name}
-                            </h2>
-                            <span className="bg-green-500/20 border border-green-500/40 text-green-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wider uppercase">
-                              NEW
-                            </span>
-                          </div>
-                          
-                          <p className="text-white/40 text-xs font-mono">
-                            @{primaryVendor.slug}
-                          </p>
-                          
-                          <p className="font-display text-lg font-bold text-gold-400 capitalize">
-                            {primaryVendor.category}
-                          </p>
-                          
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-white/70 text-sm">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-4 h-4 text-gold-400" />
-                              {primaryVendor.location}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Users className="w-4 h-4 text-gold-400" />
-                              {primaryVendor.capacity || 'Individual'}
-                            </span>
-                            {(vendorProfile?.instagram || primaryVendor.details?.instagram) && (
-                              <a 
-                                href={`https://instagram.com/${(vendorProfile?.instagram || primaryVendor.details?.instagram).replace('@', '')}`}
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="flex items-center gap-1 hover:text-gold-400 transition-colors"
-                              >
-                                <Instagram className="w-4 h-4 text-gold-400" />
-                                {vendorProfile?.instagram || primaryVendor.details?.instagram}
-                              </a>
-                            )}
-                          </div>
+                        <div className="border-t border-dark-100 pt-4 space-y-2">
+                          <p className="text-[10px] font-bold text-dark-400 uppercase tracking-wide">Inclusions</p>
+                          <ul className="space-y-1.5">
+                            {pkg.includes.map((inc, i) => (
+                              <li key={i} className="flex items-start gap-2 text-[11px] font-bold text-dark-600">
+                                <span className="text-sage-600 font-bold mt-0.5">✓</span>
+                                <span>{inc}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       </div>
 
-                      {/* Right: Public profile label & Edit button card */}
-                      <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 max-w-sm w-full md:w-80 flex flex-col gap-4 text-white shrink-0 self-stretch md:self-auto justify-center">
-                        <div>
-                          <p className="font-bold text-sm text-white/90">This is your public profile</p>
-                          <p className="text-xs text-white/60 mt-1">Clients see this page when they view or book you.</p>
-                        </div>
-                        <button
-                          onClick={() => setIsEditingProfile(true)}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-sage-600 hover:bg-sage-500 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-md"
+                      <div className="grid grid-cols-3 gap-2 mt-6 border-t border-dark-100 pt-4">
+                        <button className="h-10 border border-dark-100 hover:bg-cream-50 text-dark-700 rounded-xl text-xs font-bold transition-all">
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDeletePackage(pkg.id)}
+                          className="h-10 border border-red-105 hover:bg-red-50 text-red-500 rounded-xl text-xs font-bold transition-all"
                         >
-                          <Plus className="w-4 h-4" /> Edit profile & packages
+                          Delete
+                        </button>
+                        <button className="h-10 bg-cream-200 hover:bg-cream-300 text-dark-800 rounded-xl text-xs font-bold transition-all">
+                          View
                         </button>
                       </div>
                     </div>
-                  </div>
+                  ))}
+                </div>
 
-                  {/* Profile details sections */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left 2 columns: Bio, Specializations, Service Areas, Languages & Availability */}
-                    <div className="lg:col-span-2 space-y-6">
-                      {/* About / Bio */}
-                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
-                        <h3 className="font-display text-lg font-bold text-sage-900 mb-3">About / Bio</h3>
-                        <p className="text-dark-600 text-sm leading-relaxed whitespace-pre-line">
-                          {primaryVendor.description || 'No business description provided yet.'}
-                        </p>
-                      </div>
+              </div>
+            )}
 
-                      {/* Specializations */}
-                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
-                        <h3 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-4">Specializations</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {primaryVendor.tags && primaryVendor.tags.length > 0 ? (
-                            primaryVendor.tags.map((tag, idx) => (
-                              <span 
-                                key={tag} 
-                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
-                                  idx === 0 
-                                    ? 'bg-sage-50 border-sage-500 text-sage-800 shadow-sm' 
-                                    : 'bg-white text-dark-800 border-sage-200'
-                                }`}
-                              >
-                                {tag}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-xs text-dark-400 italic">No specializations added.</span>
-                          )}
-                        </div>
-                      </div>
+            {/* TAB: REVIEWS SECTION */}
+            {activeTab === 'reviews' && (
+              <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft space-y-6 animate-fade-up">
+                <div>
+                  <h3 className="font-display font-black text-dark-900 text-lg">Customer Reviews</h3>
+                  <p className="text-dark-500 text-xs font-medium">Read client reviews and post official responses.</p>
+                </div>
 
-                      {/* Service Areas */}
-                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
-                        <h3 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-4">Service Areas</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {(primaryVendor.details?.serviceAreas || [primaryVendor.location]).map((area: string) => (
-                            <span key={area} className="px-4 py-2 bg-white text-dark-800 border border-sage-200 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                              <MapPin className="w-3.5 h-3.5 text-sage-600" /> {area}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Languages and Availability */}
-                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="divide-y divide-dark-100">
+                  {reviewsList.map(r => (
+                    <div key={r.id} className="py-6 flex gap-4 items-start">
+                      <img 
+                        src={r.avatar} 
+                        alt={r.author}
+                        className="w-12 h-12 rounded-2xl object-cover border border-dark-100 flex-shrink-0"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center justify-between gap-4">
                           <div>
-                            <h4 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                              <Globe className="w-4 h-4 text-sage-600" /> Languages Spoken
-                            </h4>
-                            <p className="text-dark-800 text-sm font-semibold">
-                              {(primaryVendor.details?.languages || ['English']).join(' · ')}
-                            </p>
+                            <p className="font-bold text-dark-900 text-sm">{r.author}</p>
+                            <p className="text-[10px] text-dark-400 font-bold">{r.event} · {r.date}</p>
                           </div>
-                          <div>
-                            <h4 className="font-display text-sm font-bold text-dark-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                              <Clock className="w-4 h-4 text-sage-600" /> Availability
-                            </h4>
-                            <p className="text-dark-800 text-sm font-semibold">
-                              {(primaryVendor.details?.workingDays || ['Sat', 'Sun']).join(', ')}
-                            </p>
+                          
+                          {/* Rating display stars */}
+                          <div className="flex gap-0.5 text-gold-500 text-xs font-bold">
+                            {'★'.repeat(Math.floor(r.rating))}
+                            {r.rating % 1 !== 0 && '½'}
                           </div>
                         </div>
-                      </div>
 
-                      {/* Reviews Preview */}
-                      <div className="bg-white rounded-2xl shadow-card p-6 border border-sage-100/60">
-                        <h3 className="font-display text-lg font-bold text-sage-900 mb-4">Reviews</h3>
-                        {profileReviewsLoading ? (
-                          <div className="flex items-center justify-center py-6">
-                            <RefreshCw className="w-6 h-6 text-sage-600 animate-spin" />
-                          </div>
-                        ) : profileReviews.length === 0 ? (
-                          <div className="space-y-1">
-                            <p className="font-bold text-sage-900 text-sm">No reviews yet</p>
-                            <p className="text-dark-500 text-xs">No reviews yet for {primaryVendor.name}.</p>
+                        <p className="text-dark-700 text-xs leading-relaxed font-semibold">{r.comment}</p>
+
+                        {/* Existing Official Reply */}
+                        {r.reply ? (
+                          <div className="bg-cream-50 p-4 rounded-xl border border-cream-200 text-xs font-medium mt-3">
+                            <p className="font-bold text-sage-900">Official Reply:</p>
+                            <p className="text-dark-600 mt-1">"{r.reply}"</p>
                           </div>
                         ) : (
-                          <div className="space-y-4">
-                            {profileReviews.map((review) => (
-                              <div key={review.id} className="border border-sage-100 rounded-xl p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                  <p className="font-bold text-sage-900 text-sm">{review.customer_name}</p>
-                                  <div className="flex gap-0.5">
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                      <Star 
-                                        key={i} 
-                                        className={`w-3.5 h-3.5 ${i < review.rating ? 'text-gold-500 fill-gold-500' : 'text-cream-200'}`} 
-                                      />
-                                    ))}
-                                  </div>
+                          <div className="pt-2">
+                            {activeReplyId === r.id ? (
+                              <div className="space-y-2 mt-2">
+                                <textarea
+                                  placeholder="Write your polite reply..."
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  rows={2}
+                                  className="w-full bg-cream-50 border border-dark-100 rounded-xl p-3 text-xs outline-none font-medium resize-none"
+                                />
+                                <div className="flex gap-1.5 justify-end">
+                                  <button 
+                                    onClick={() => setActiveReplyId(null)}
+                                    className="px-3 py-1.5 bg-cream-200 text-dark-700 rounded-lg text-xs font-bold"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button 
+                                    onClick={() => handleReviewReply(r.id)}
+                                    className="px-4 py-1.5 bg-sage-600 text-white rounded-lg text-xs font-bold"
+                                  >
+                                    Post Reply
+                                  </button>
                                 </div>
-                                <p className="text-dark-600 text-xs leading-relaxed">{review.comment}</p>
                               </div>
-                            ))}
+                            ) : (
+                              <button 
+                                onClick={() => {
+                                  setActiveReplyId(r.id);
+                                  setReplyText('');
+                                }}
+                                className="px-3.5 py-1.5 bg-cream-100 hover:bg-cream-200 text-dark-700 text-[10px] font-black rounded-lg transition-all"
+                              >
+                                Reply to Review
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
-
-                    {/* Right column: Package Quick Link or Profile Health */}
-                    <div className="lg:col-span-1 space-y-6">
-                      <div className="bg-gradient-to-br from-sage-900 to-dark-950 text-white rounded-2xl p-5 border border-white/5">
-                        <h4 className="font-display font-bold text-sm text-gold-400 mb-2 flex items-center gap-1.5">
-                          <Sparkles className="w-4 h-4" /> Profile Completeness
-                        </h4>
-                        <div className="w-full bg-white/10 rounded-full h-2.5 mt-3 overflow-hidden">
-                          <div className="h-full bg-gold-500 rounded-full transition-all" style={{ width: '85%' }} />
-                        </div>
-                        <p className="text-white/60 text-xs mt-3 leading-relaxed">
-                          Your profile is 85% complete. Add your GST number and verify your bank account to unlock fast payouts.
-                        </p>
-                      </div>
-
-                      <div className="bg-white rounded-2xl shadow-card p-5 border border-sage-100/60">
-                        <h4 className="font-bold text-sage-900 text-sm mb-3">Quick Navigation</h4>
-                        <div className="space-y-2">
-                          <button onClick={() => navigate(`/vendors/${primaryVendor.slug}`)} className="w-full text-left px-3 py-2 bg-sage-50 hover:bg-sage-100 text-sage-800 text-xs font-bold rounded-xl transition-all flex items-center justify-between">
-                            View public storefront <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => setActiveTab('services')} className="w-full text-left px-3 py-2 bg-sage-50 hover:bg-sage-100 text-sage-800 text-xs font-bold rounded-xl transition-all flex items-center justify-between">
-                            Manage packages <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ) : (
-                /* EDIT PROFILE MODE */
-                <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-                  <div className="flex items-center justify-between">
+              </div>
+            )}
+
+            {/* TAB: EARNINGS & GRAPH */}
+            {activeTab === 'earnings' && (
+              <div className="space-y-8 animate-fade-up">
+                
+                {/* Stats row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                    <p className="text-dark-500 text-xs font-bold uppercase tracking-wider">Today's Earnings</p>
+                    <h3 className="font-display font-black text-dark-900 text-3xl mt-2">₹42,500</h3>
+                    <p className="text-[10px] text-dark-400 mt-2 font-bold uppercase">Credited via Stripe</p>
+                  </div>
+
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                    <p className="text-dark-500 text-xs font-bold uppercase tracking-wider">Weekly Income</p>
+                    <h3 className="font-display font-black text-dark-900 text-3xl mt-2">₹1,75,000</h3>
+                    <p className="text-[10px] text-emerald-600 mt-2 font-bold uppercase">▲ +12% from last week</p>
+                  </div>
+
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                    <p className="text-dark-500 text-xs font-bold uppercase tracking-wider">Monthly Income</p>
+                    <h3 className="font-display font-black text-dark-900 text-3xl mt-2">₹4,40,000</h3>
+                    <p className="text-[10px] text-dark-400 mt-2 font-bold uppercase">Target: ₹5L goal</p>
+                  </div>
+
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft flex flex-col justify-between">
+                    <div>
+                      <p className="text-dark-500 text-xs font-bold uppercase tracking-wider">Pending Payout</p>
+                      <h3 className="font-display font-black text-sage-600 text-3xl mt-2">₹90,000</h3>
+                    </div>
                     <button 
-                      onClick={() => setIsEditingProfile(false)}
-                      className="px-4 py-2 border border-cream-300 text-cream-800 font-bold rounded-xl hover:bg-cream-100 transition-all text-sm flex items-center gap-1.5"
+                      onClick={() => showToast('Payout request registered. Processing takes 2-3 business days.')}
+                      className="mt-4 w-full h-10 bg-sage-600 hover:bg-sage-700 text-white rounded-xl text-xs font-bold shadow-soft transition-all"
                     >
-                      <ArrowLeft className="w-4 h-4" /> Back to Public Profile
+                      Withdraw Balance
                     </button>
-                    <h2 className="font-display text-xl font-bold text-sage-900">
-                      Edit Profile & Packages
-                    </h2>
                   </div>
 
-                  {/* Basic Business Details */}
-                  <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
-                    <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
-                      <Building2 className="w-5 h-5 text-sage-600" /> Basic Details
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Business Name</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.name}
-                            onChange={e => setProfileEditForm(f => ({ ...f, name: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="Your business name"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Business Category / Role</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.category}
-                            onChange={e => setProfileEditForm(f => ({ ...f, category: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="e.g. reel maker, Photographer"
-                          />
-                        </div>
-                      </div>
+                </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Location</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.location}
-                            onChange={e => setProfileEditForm(f => ({ ...f, location: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="City, State"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Team Size / Capacity</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.capacity}
-                            onChange={e => setProfileEditForm(f => ({ ...f, capacity: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="e.g. Team of 4, Individual"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-dark-700 font-bold text-xs mb-1.5">Business Bio / Description</label>
-                        <textarea
-                          value={profileEditForm.description}
-                          onChange={e => setProfileEditForm(f => ({ ...f, description: e.target.value }))}
-                          rows={4}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="Tell customers about your business..."
-                        />
-                      </div>
+                {/* Earnings Minimal line chart */}
+                <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="font-display font-black text-dark-900 text-base">Monthly Earnings Trend</h3>
+                      <p className="text-dark-500 text-xs font-semibold mt-0.5">Graphical growth pattern of vendor services.</p>
                     </div>
+                    <span className="text-xs bg-sage-50 text-sage-700 font-bold px-2.5 py-1 rounded-full border border-sage-100">FY 2026</span>
                   </div>
 
-                  {/* Tags and Custom Fields */}
-                  <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
-                    <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
-                      <Sparkles className="w-5 h-5 text-sage-600" /> Custom Attributes
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-dark-700 font-bold text-xs mb-1.5">Specializations (comma-separated)</label>
-                        <input
-                          type="text"
-                          value={profileEditForm.tags}
-                          onChange={e => setProfileEditForm(f => ({ ...f, tags: e.target.value }))}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="e.g. YT Shorts, Reels, Wedding, Portrait"
-                        />
-                      </div>
+                  {/* SVG Line Graph */}
+                  <div className="relative h-64 bg-cream-50/50 rounded-2xl border border-cream-200 p-4">
+                    <svg className="w-full h-full" viewBox="0 0 600 200" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#5d8560" stopOpacity="0.2"/>
+                          <stop offset="100%" stopColor="#5d8560" stopOpacity="0.0"/>
+                        </linearGradient>
+                      </defs>
+                      {/* Grid Lines */}
+                      <line x1="0" y1="50" x2="600" y2="50" stroke="#eef1ee" strokeWidth="1" strokeDasharray="4" />
+                      <line x1="0" y1="100" x2="600" y2="100" stroke="#eef1ee" strokeWidth="1" strokeDasharray="4" />
+                      <line x1="0" y1="150" x2="600" y2="150" stroke="#eef1ee" strokeWidth="1" strokeDasharray="4" />
 
-                      <div>
-                        <label className="block text-dark-700 font-bold text-xs mb-1.5">Service Areas (comma-separated)</label>
-                        <input
-                          type="text"
-                          value={profileEditForm.serviceAreas}
-                          onChange={e => setProfileEditForm(f => ({ ...f, serviceAreas: e.target.value }))}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="e.g. Bangalore, Hyderabad"
-                        />
-                      </div>
+                      {/* Area Fill */}
+                      <path 
+                        d="M 50 160 Q 150 140 250 80 T 450 110 T 550 40 L 550 200 L 50 200 Z" 
+                        fill="url(#chartGrad)" 
+                      />
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Languages Spoken (comma-separated)</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.languages}
-                            onChange={e => setProfileEditForm(f => ({ ...f, languages: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="e.g. English, Telugu"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Availability Days (comma-separated)</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.workingDays}
-                            onChange={e => setProfileEditForm(f => ({ ...f, workingDays: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="e.g. Sat, Sun, Mon"
-                          />
-                        </div>
-                      </div>
+                      {/* Chart Line */}
+                      <path 
+                        d="M 50 160 Q 150 140 250 80 T 450 110 T 550 40" 
+                        fill="none" 
+                        stroke="#5d8560" 
+                        strokeWidth="3.5" 
+                        strokeLinecap="round"
+                      />
+
+                      {/* Dots on nodes */}
+                      <circle cx="50" cy="160" r="5" fill="#ffffff" stroke="#5d8560" strokeWidth="2.5" />
+                      <circle cx="150" cy="140" r="5" fill="#ffffff" stroke="#5d8560" strokeWidth="2.5" />
+                      <circle cx="250" cy="80" r="5" fill="#ffffff" stroke="#5d8560" strokeWidth="2.5" />
+                      <circle cx="350" cy="95" r="5" fill="#ffffff" stroke="#5d8560" strokeWidth="2.5" />
+                      <circle cx="450" cy="110" r="5" fill="#ffffff" stroke="#5d8560" strokeWidth="2.5" />
+                      <circle cx="550" cy="40" r="5" fill="#ffffff" stroke="#5d8560" strokeWidth="2.5" />
+                    </svg>
+
+                    {/* Chart Labels */}
+                    <div className="flex justify-between text-[10px] font-bold text-dark-400 mt-4 px-6 uppercase tracking-wider">
+                      <span>Mar</span>
+                      <span>Apr</span>
+                      <span>May</span>
+                      <span>Jun</span>
+                      <span>Jul</span>
+                      <span>Aug</span>
                     </div>
-                  </div>
-
-                  {/* KYC & Billing */}
-                  <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
-                    <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
-                      <FileText className="w-5 h-5 text-sage-600" /> Verification (KYC) & Bank Info
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">GST Number</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.gst_number}
-                            onChange={e => setProfileEditForm(f => ({ ...f, gst_number: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="22AAAAA0000A1Z5"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">PAN Number</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.pan_number}
-                            onChange={e => setProfileEditForm(f => ({ ...f, pan_number: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="AAAAA0000A"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
-                            <CreditCard className="w-3.5 h-3.5 text-sage-600" /> Bank Account Number
-                          </label>
-                          <input
-                            type="text"
-                            value={profileEditForm.bank_account}
-                            onChange={e => setProfileEditForm(f => ({ ...f, bank_account: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="Bank Account Number"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-dark-700 font-bold text-xs mb-1.5">Bank IFSC Code</label>
-                          <input
-                            type="text"
-                            value={profileEditForm.ifsc}
-                            onChange={e => setProfileEditForm(f => ({ ...f, ifsc: e.target.value }))}
-                            className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                            placeholder="IFSC Code"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Social Handles */}
-                  <div className="bg-white rounded-2xl shadow-card p-6 md:p-8 border border-sage-100/60">
-                    <h3 className="font-display text-lg font-bold text-sage-900 mb-6 flex items-center gap-2 pb-3 border-b border-sage-100">
-                      <Globe className="w-5 h-5 text-sage-600" /> Social Links
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
-                          <Instagram className="w-3.5 h-3.5 text-sage-600" /> Instagram Handle
-                        </label>
-                        <input
-                          type="text"
-                          value={profileEditForm.instagram}
-                          onChange={e => setProfileEditForm(f => ({ ...f, instagram: e.target.value }))}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="e.g. @yourbusiness"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
-                          <Facebook className="w-3.5 h-3.5 text-sage-600" /> Facebook Page Link
-                        </label>
-                        <input
-                          type="text"
-                          value={profileEditForm.facebook}
-                          onChange={e => setProfileEditForm(f => ({ ...f, facebook: e.target.value }))}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="e.g. https://facebook.com/yourbusiness"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-dark-700 font-bold text-xs mb-1.5 flex items-center gap-1">
-                          <Globe className="w-3.5 h-3.5 text-sage-600" /> Website URL
-                        </label>
-                        <input
-                          type="text"
-                          value={profileEditForm.website}
-                          onChange={e => setProfileEditForm(f => ({ ...f, website: e.target.value }))}
-                          className="w-full px-4 py-2.5 border border-sage-200 rounded-xl text-sage-900 text-sm focus:border-sage-500 focus:ring-2 focus:ring-sage-100 outline-none"
-                          placeholder="e.g. https://yourbusiness.com"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-4">
-                    <button
-                      onClick={handleSaveProfile}
-                      disabled={savingProfile}
-                      className="inline-flex items-center gap-2 px-6 py-3.5 bg-sage-600 hover:bg-sage-500 disabled:opacity-50 text-white font-bold rounded-xl hover:shadow-glow transition-all text-sm cursor-pointer"
-                    >
-                      {savingProfile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Changes
-                    </button>
-                    <button
-                      onClick={() => setIsEditingProfile(false)}
-                      className="inline-flex items-center gap-2 px-6 py-3.5 border border-cream-300 text-cream-800 font-bold rounded-xl hover:bg-cream-100 transition-all text-sm cursor-pointer"
-                    >
-                      <X className="w-4 h-4" /> Cancel
-                    </button>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-            </div>
-          )}
+
+              </div>
+            )}
+
+            {/* TAB: ANALYTICS */}
+            {activeTab === 'analytics' && (
+              <div className="space-y-8 animate-fade-up">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  
+                  {/* Gauge style card */}
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                    <h3 className="font-display font-black text-dark-900 text-base mb-4">Traffic Conversion Rate</h3>
+                    <div className="flex flex-col items-center py-8">
+                      <div className="relative w-40 h-40 flex items-center justify-center">
+                        <svg className="w-full h-full transform -rotate-90">
+                          <circle cx="80" cy="80" r="68" fill="transparent" stroke="#f1f5f9" strokeWidth="8" />
+                          <circle cx="80" cy="80" r="68" fill="transparent" stroke="#5d8560" strokeWidth="8" strokeDasharray="427" strokeDashoffset="128" />
+                        </svg>
+                        <div className="absolute text-center">
+                          <p className="font-display font-black text-dark-900 text-3xl">70%</p>
+                          <p className="text-dark-400 text-[10px] font-bold uppercase mt-1">Excellent</p>
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold text-dark-500 text-center max-w-xs mt-6 leading-relaxed">
+                        Your page conversion is 12% higher than average photographers in Bangalore region.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Customer distribution */}
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                    <h3 className="font-display font-black text-dark-900 text-base mb-4">Event Types Distribution</h3>
+                    
+                    <div className="space-y-4 py-4">
+                      {[
+                        { cat: 'Weddings', pct: 60, color: 'bg-sage-600' },
+                        { cat: 'Corporate Shoots', pct: 25, color: 'bg-gold-500' },
+                        { cat: 'Birthdays & Private Parties', pct: 15, color: 'bg-cream-600' }
+                      ].map((item, idx) => (
+                        <div key={idx} className="space-y-1.5">
+                          <div className="flex justify-between text-xs font-bold text-dark-800">
+                            <span>{item.cat}</span>
+                            <span>{item.pct}%</span>
+                          </div>
+                          <div className="w-full h-2.5 bg-cream-50 rounded-full overflow-hidden">
+                            <div className={`h-full ${item.color}`} style={{ width: `${item.pct}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Grid performance statistics */}
+                <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                  <h3 className="font-display font-black text-dark-900 text-base mb-6">Key Conversion Statistics</h3>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div className="p-4 bg-cream-50 rounded-xl border border-cream-200 text-center">
+                      <p className="text-dark-500 text-[10px] font-bold uppercase">Profile Views</p>
+                      <p className="font-display font-black text-dark-950 text-2xl mt-1.5">1,036</p>
+                    </div>
+                    <div className="p-4 bg-cream-50 rounded-xl border border-cream-200 text-center">
+                      <p className="text-dark-500 text-[10px] font-bold uppercase">Leads Generated</p>
+                      <p className="font-display font-black text-dark-950 text-2xl mt-1.5">72</p>
+                    </div>
+                    <div className="p-4 bg-cream-50 rounded-xl border border-cream-200 text-center">
+                      <p className="text-dark-500 text-[10px] font-bold uppercase">Completed Bookings</p>
+                      <p className="font-display font-black text-dark-950 text-2xl mt-1.5">18</p>
+                    </div>
+                    <div className="p-4 bg-cream-50 rounded-xl border border-cream-200 text-center">
+                      <p className="text-dark-500 text-[10px] font-bold uppercase">Revenue Conversion</p>
+                      <p className="font-display font-black text-sage-600 text-2xl mt-1.5">₹4,25,000</p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB: DEALS / PROMOTIONS */}
+            {activeTab === 'deals' && (
+              <div className="space-y-6 animate-fade-up">
+                
+                {/* Header promo */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                  <div>
+                    <h3 className="font-display font-black text-dark-900 text-lg">Promotions & Coupons</h3>
+                    <p className="text-dark-500 text-xs font-semibold mt-0.5">Offer custom discount codes to attract premium event planners.</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowDealForm(!showDealForm)}
+                    className="h-11 bg-gradient-brand text-white rounded-xl px-6 text-xs font-black shadow-md flex items-center gap-1.5 transition-all"
+                  >
+                    <Plus className="w-4.5 h-4.5" /> Create Coupon
+                  </button>
+                </div>
+
+                {/* Form to add promo */}
+                {showDealForm && (
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft space-y-4 animate-scale-in">
+                    <h4 className="font-display font-black text-dark-900 text-sm">Create New Promo Deal</h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Coupon Code</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. WEDFEST15"
+                          value={dealForm.code}
+                          onChange={(e) => setDealForm({ ...dealForm, code: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Discount Rate</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 15% OFF / ₹5000 Flat"
+                          value={dealForm.discount}
+                          onChange={(e) => setDealForm({ ...dealForm, discount: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Expiry Date</label>
+                        <input
+                          type="date"
+                          value={dealForm.expiry}
+                          onChange={(e) => setDealForm({ ...dealForm, expiry: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Description</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Applicable on booking premium photography package."
+                          value={dealForm.description}
+                          onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <button 
+                        onClick={() => setShowDealForm(false)}
+                        className="px-4 py-2 bg-cream-200 text-dark-700 font-bold rounded-xl text-xs"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={handleAddDeal}
+                        className="px-6 py-2 bg-sage-600 hover:bg-sage-700 text-white font-bold rounded-xl text-xs"
+                      >
+                        Save Coupon
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Promo codes list */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {deals.map(d => (
+                    <div 
+                      key={d.id}
+                      className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft flex flex-col justify-between hover:shadow-card hover:-translate-y-0.5 transition-all"
+                    >
+                      <div>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[10px] font-bold text-sage-800 bg-sage-50 px-2 py-0.5 rounded-full border border-sage-100">
+                              {d.discount}
+                            </span>
+                            <h4 className="font-display font-black text-dark-900 text-lg mt-2 tracking-wide">{d.code}</h4>
+                          </div>
+                          
+                          {/* Active badge */}
+                          <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                            d.active ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+                          }`}>
+                            {d.active ? 'Active' : 'Disabled'}
+                          </span>
+                        </div>
+
+                        <p className="text-dark-500 text-[11px] leading-relaxed mt-3 font-semibold">{d.description}</p>
+                        
+                        <div className="border-t border-dark-100 pt-4 mt-4 text-[10px] font-bold text-dark-400 space-y-1.5">
+                          <p>APPLIED BOOKINGS: {d.bookings_applied}</p>
+                          <p>EXPIRY: {d.expiry}</p>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => handleToggleDealStatus(d.id)}
+                        className={`mt-6 w-full h-10 border rounded-xl text-xs font-bold transition-all ${
+                          d.active 
+                            ? 'border-red-105 text-red-500 hover:bg-red-50' 
+                            : 'border-sage-200 text-sage-600 hover:bg-sage-50'
+                        }`}
+                      >
+                        {d.active ? 'Deactivate Coupon' : 'Activate Coupon'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB: SETTINGS & PROFILE */}
+            {activeTab === 'settings' && (
+              <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft space-y-8 animate-fade-up">
+                
+                <div>
+                  <h3 className="font-display font-black text-dark-900 text-lg">Business Settings</h3>
+                  <p className="text-dark-500 text-xs font-medium">Update business information and bank account payouts setup.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  {/* General Profile fields */}
+                  <div className="space-y-4">
+                    <h4 className="font-display font-black text-sage-900 text-sm border-b border-dark-100 pb-2">Business Information</h4>
+                    
+                    <div>
+                      <label className="block text-xs font-bold text-dark-500 uppercase">Business Name</label>
+                      <input
+                        type="text"
+                        value={settingsForm.business_name}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, business_name: e.target.value })}
+                        className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-dark-500 uppercase">Phone Number</label>
+                      <input
+                        type="text"
+                        value={settingsForm.phone}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
+                        className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-dark-500 uppercase">Location</label>
+                      <input
+                        type="text"
+                        value={settingsForm.location}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, location: e.target.value })}
+                        className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-dark-500 uppercase">Business Biography (Bio)</label>
+                      <textarea
+                        value={settingsForm.bio}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, bio: e.target.value })}
+                        rows={4}
+                        className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium resize-none leading-relaxed"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Financial & Social fields */}
+                  <div className="space-y-6">
+                    
+                    {/* Bank Payout settings */}
+                    <div className="space-y-4">
+                      <h4 className="font-display font-black text-sage-900 text-sm border-b border-dark-100 pb-2">Bank & Tax Verification</h4>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-dark-500 uppercase">GST Number</label>
+                          <input
+                            type="text"
+                            value={settingsForm.gst_number}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, gst_number: e.target.value })}
+                            placeholder="e.g. 29AAAAA1111A1Z1"
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-dark-500 uppercase">PAN Number</label>
+                          <input
+                            type="text"
+                            value={settingsForm.pan_number}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, pan_number: e.target.value })}
+                            placeholder="e.g. ABCDE1234F"
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-2">
+                          <label className="block text-xs font-bold text-dark-500 uppercase">Bank Account No.</label>
+                          <input
+                            type="text"
+                            value={settingsForm.bank_account}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, bank_account: e.target.value })}
+                            placeholder="Bank Account Number"
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-dark-500 uppercase">IFSC Code</label>
+                          <input
+                            type="text"
+                            value={settingsForm.ifsc}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, ifsc: e.target.value })}
+                            placeholder="IFSC Code"
+                            className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Social Media links */}
+                    <div className="space-y-4">
+                      <h4 className="font-display font-black text-sage-900 text-sm border-b border-dark-100 pb-2">Social Profiles</h4>
+                      
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="flex items-center gap-2 bg-cream-50 border border-dark-100 rounded-xl px-4 py-2">
+                          <Instagram className="w-4 h-4 text-sage-600" />
+                          <input
+                            type="text"
+                            value={settingsForm.instagram}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, instagram: e.target.value })}
+                            className="bg-transparent text-sm w-full outline-none font-medium"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 bg-cream-50 border border-dark-100 rounded-xl px-4 py-2">
+                          <Facebook className="w-4 h-4 text-sage-600" />
+                          <input
+                            type="text"
+                            value={settingsForm.facebook}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
+                            className="bg-transparent text-sm w-full outline-none font-medium"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 bg-cream-50 border border-dark-100 rounded-xl px-4 py-2">
+                          <Globe className="w-4 h-4 text-sage-600" />
+                          <input
+                            type="text"
+                            value={settingsForm.website}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, website: e.target.value })}
+                            className="bg-transparent text-sm w-full outline-none font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                <div className="border-t border-dark-100 pt-6 flex justify-end gap-3">
+                  <button 
+                    onClick={() => setActiveTab('dashboard')}
+                    className="px-6 py-2.5 bg-cream-200 text-dark-700 rounded-xl text-sm font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleSaveSettings}
+                    className="px-8 py-2.5 bg-gradient-brand text-white rounded-xl text-sm font-bold shadow-soft"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB: SUPPORT / HELP */}
+            {activeTab === 'support' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-up">
+                
+                {/* Tickets registry list */}
+                <div className="lg:col-span-2 space-y-6">
+                  
+                  {/* Create Ticket */}
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft space-y-4">
+                    <h3 className="font-display font-black text-dark-900 text-base">Register Support Ticket</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Support Category</label>
+                        <select
+                          value={supportForm.category}
+                          onChange={(e) => setSupportForm({ ...supportForm, category: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                        >
+                          <option value="Payments">Payments & Payouts</option>
+                          <option value="Profile Settings">Profile Listing</option>
+                          <option value="Booking System">Booking Disputes</option>
+                          <option value="General">General Inquiry</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Subject / Brief title</label>
+                        <input
+                          type="text"
+                          placeholder="What issue are you facing?"
+                          value={supportForm.subject}
+                          onChange={(e) => setSupportForm({ ...supportForm, subject: e.target.value })}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-dark-500 uppercase">Detailed Description</label>
+                        <textarea
+                          placeholder="Describe the problem in detail so our partner support team can assist you."
+                          value={supportForm.message}
+                          onChange={(e) => setSupportForm({ ...supportForm, message: e.target.value })}
+                          rows={4}
+                          className="w-full bg-cream-50 border border-dark-100 rounded-xl px-4 py-2.5 text-sm mt-1.5 outline-none font-medium resize-none leading-relaxed"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button 
+                        onClick={handleAddSupportTicket}
+                        className="px-6 py-2.5 bg-gradient-brand text-white rounded-xl text-xs font-black shadow-soft"
+                      >
+                        Submit Ticket
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Past Support Tickets */}
+                  <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft">
+                    <h3 className="font-display font-black text-dark-900 text-base mb-4">Past Tickets</h3>
+                    
+                    <div className="divide-y divide-dark-100">
+                      {supportTickets.map(t => (
+                        <div key={t.id} className="py-4 flex justify-between items-center text-xs">
+                          <div>
+                            <p className="font-bold text-dark-900">{t.subject}</p>
+                            <p className="text-dark-500 text-[10px] font-semibold mt-1">Ref: {t.id} · Cat: {t.category} · {t.created_at}</p>
+                          </div>
+                          <span className={`px-2.5 py-0.5 rounded-full font-black uppercase ${
+                            t.status === 'Open' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-dark-50 text-dark-600 border border-dark-150'
+                          }`}>
+                            {t.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* FAQ side panel */}
+                <div className="bg-white border border-dark-100 rounded-2xl p-6 shadow-soft space-y-6">
+                  <div>
+                    <h3 className="font-display font-black text-dark-900 text-base">Frequently Asked Questions</h3>
+                    <p className="text-dark-500 text-xs font-semibold mt-0.5">Quick guides to help manage your partner dashboard.</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {[
+                      { q: 'How do payouts work?', a: 'Once an event is successfully completed, the funds are automatically released to your registered bank account via Stripe within 48 hours.' },
+                      { q: 'Can I block holiday dates?', a: 'Yes! Go to the Calendar tab and click on specific dates to block them. They will immediately show as booked/unavailable to customers.' },
+                      { q: 'How do I add multiple listing services?', a: 'Navigate to the Packages tab and click "Add New Package". Each package goes live instantly.' }
+                    ].map((faq, i) => (
+                      <div key={i} className="space-y-1">
+                        <p className="font-bold text-sage-900 text-xs">Q: {faq.q}</p>
+                        <p className="text-dark-500 text-[11px] font-semibold leading-relaxed">A: {faq.a}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+          </main>
         </div>
       </div>
-    </>
+
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-dark-100 z-50 flex justify-around items-center">
+        {[
+          { id: 'dashboard', label: 'Home', icon: Building2 },
+          { id: 'bookings', label: 'Bookings', icon: Calendar },
+          { id: 'messages', label: 'Messages', icon: MessageSquare },
+          { id: 'earnings', label: 'Earnings', icon: DollarSign },
+          { id: 'settings', label: 'Profile', icon: Settings },
+        ].map(item => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id as any)}
+              className={`flex flex-col items-center justify-center gap-1 ${
+                isActive ? 'text-sage-600 font-bold' : 'text-dark-500'
+              }`}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="text-[10px] font-semibold">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected Booking Details Dialog / Modal */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-dark-950/20 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 border border-dark-100 shadow-card max-w-md w-full animate-scale-in space-y-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-bold text-sage-700 bg-sage-50 px-2.5 py-0.5 rounded-full border border-sage-100">
+                  {selectedBooking.booking_ref}
+                </span>
+                <h3 className="font-display font-black text-dark-900 text-lg mt-2">Booking Details</h3>
+              </div>
+              <button 
+                onClick={() => setSelectedBooking(null)}
+                className="p-1 hover:bg-cream-100 rounded-lg text-dark-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs font-semibold text-dark-500">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] font-bold text-dark-400 uppercase">Customer Name</p>
+                  <p className="text-sm font-bold text-dark-950 mt-1">{selectedBooking.customer_name}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-dark-400 uppercase">Event Date</p>
+                  <p className="text-sm font-bold text-dark-950 mt-1">{selectedBooking.event_date}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-dark-400 uppercase">Email Address</p>
+                  <p className="text-sm font-bold text-dark-950 mt-1">{selectedBooking.customer_email}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-dark-400 uppercase">Phone Number</p>
+                  <p className="text-sm font-bold text-dark-950 mt-1">{selectedBooking.customer_phone}</p>
+                </div>
+              </div>
+
+              <div className="border-t border-dark-100 pt-4">
+                <p className="text-[10px] font-bold text-dark-400 uppercase">Event / Package Service</p>
+                <p className="text-sm font-bold text-dark-950 mt-1">{selectedBooking.event_type}</p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-dark-400 uppercase">Guest Count</p>
+                <p className="text-sm font-bold text-dark-950 mt-1">{selectedBooking.guests} Guests</p>
+              </div>
+
+              {selectedBooking.special_requests && (
+                <div className="bg-cream-50 border border-cream-200 p-3 rounded-xl">
+                  <p className="text-[10px] font-bold text-dark-400 uppercase">Special Instructions</p>
+                  <p className="text-dark-800 leading-relaxed mt-1">"{selectedBooking.special_requests}"</p>
+                </div>
+              )}
+
+              <div className="border-t border-dark-100 pt-4 flex justify-between items-center text-sm">
+                <div>
+                  <p className="text-[10px] font-bold text-dark-400 uppercase">Payment Status</p>
+                  <p className="text-xs font-black uppercase text-emerald-600 mt-0.5">{selectedBooking.payment_status}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-dark-400 uppercase">Total Amount</p>
+                  <p className="text-base font-black text-dark-900 mt-0.5">₹{selectedBooking.total_amount.toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setSelectedBooking(null)}
+              className="w-full h-11 bg-sage-600 hover:bg-sage-700 text-white rounded-xl text-xs font-bold transition-all shadow-soft"
+            >
+              Close Details
+            </button>
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 }

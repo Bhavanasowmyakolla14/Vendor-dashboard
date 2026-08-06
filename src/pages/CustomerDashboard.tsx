@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Star, TrendingUp, Clock, CheckCircle2, XCircle,
   Download, ArrowRight, Sparkles, Heart, Wallet, Bell,
-  ChevronRight, MapPin, Users, Mail, Phone, FileText, LogOut
+  ChevronRight, MapPin, Users, FileText, LogOut
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
