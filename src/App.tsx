@@ -1,41 +1,81 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './lib/auth';
-import HomePage from './pages/HomePage';
-import AboutPage from './pages/AboutPage';
-import VendorsPage from './pages/VendorsPage';
-import VendorDetailPage from './pages/VendorDetailPage';
-import BookingPage from './pages/BookingPage';
-import ConfirmationPage from './pages/ConfirmationPage';
-import AuthPage from './pages/AuthPage';
-import ExplorePage from './pages/ExplorePage';
-import VendorDashboard from './pages/VendorDashboard';
-import CustomerDashboard from './pages/CustomerDashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import BudgetPlannerPage from './pages/BudgetPlannerPage';
-import CategoryDetailPage from './pages/CategoryDetailPage';
-import VendorRegistrationPage from './pages/VendorRegistrationPage';
+import { useState } from 'react';
+import { HashRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from '@/context/AuthContext';
+import { DataProvider } from '@/context/DataContext';
+import { AnimatedRoutes } from '@/components/dashboard/animated-routes';
+import { Sidebar } from '@/components/dashboard/sidebar';
+import { TopNav } from '@/components/dashboard/top-nav';
+import { BottomNav } from '@/components/dashboard/bottom-nav';
+import { AuthModal } from '@/components/auth/auth-modal';
+import { AdminKycPortal } from '@/components/admin/admin-kyc-portal';
+import { ToastBanner } from '@/components/ui/toast-banner';
 
-export default function App() {
+import { DashboardPage } from '@/pages/dashboard-page';
+import { VerifyDocumentsPage } from '@/pages/verify-documents-page';
+import { BookingsPage } from '@/pages/bookings-page';
+import { CalendarPage } from '@/pages/calendar-page';
+import { MessagesPage } from '@/pages/messages-page';
+import { PortfolioPage } from '@/pages/portfolio-page';
+import { PackagesPage } from '@/pages/packages-page';
+import { ReviewsPage } from '@/pages/reviews-page';
+import { EarningsPage } from '@/pages/earnings-page';
+import { AnalyticsPage } from '@/pages/analytics-page';
+import { DealsPage } from '@/pages/deals-page';
+import { SettingsPage } from '@/pages/settings-page';
+import { SupportPage } from '@/pages/support-page';
+import { NotificationsPage } from '@/pages/notifications-page';
+
+function AppContent() {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Sidebar
+        mobileOpen={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
+      />
+
+      <div className="lg:pl-[280px]">
+        <TopNav onMenuClick={() => setMobileSidebarOpen(true)} />
+
+        <main className="mx-auto max-w-[1600px] p-4 pb-24 sm:p-6 lg:p-8 lg:pb-8">
+          <AnimatedRoutes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/verify-documents" element={<VerifyDocumentsPage />} />
+            <Route path="/bookings" element={<BookingsPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/portfolio" element={<PortfolioPage />} />
+            <Route path="/packages" element={<PackagesPage />} />
+            <Route path="/reviews" element={<ReviewsPage />} />
+            <Route path="/earnings" element={<EarningsPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/deals" element={<DealsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+          </AnimatedRoutes>
+        </main>
+      </div>
+
+      <BottomNav />
+      <AuthModal />
+      <AdminKycPortal />
+      <ToastBanner />
+    </div>
+  );
+}
+
+function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/explore" element={<ExplorePage />} />
-          <Route path="/vendors" element={<VendorsPage />} />
-          <Route path="/vendors/:slug" element={<VendorDetailPage />} />
-          <Route path="/book/:slug" element={<BookingPage />} />
-          <Route path="/confirmation/:ref" element={<ConfirmationPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/vendor-registration" element={<VendorRegistrationPage />} />
-          <Route path="/vendor-dashboard" element={<VendorDashboard />} />
-          <Route path="/dashboard" element={<CustomerDashboard />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/budget-planner" element={<BudgetPlannerPage />} />
-          <Route path="/category/:category" element={<CategoryDetailPage />} />
-        </Routes>
-      </BrowserRouter>
+      <DataProvider>
+        <HashRouter>
+          <AppContent />
+        </HashRouter>
+      </DataProvider>
     </AuthProvider>
   );
 }
+
+export default App;
