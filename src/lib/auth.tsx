@@ -135,8 +135,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
-    localStorage.removeItem('festivo_approved_vendors');
-    localStorage.removeItem('festivo_pending_vendors');
   };
 
   return (

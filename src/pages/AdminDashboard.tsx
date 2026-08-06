@@ -150,6 +150,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadData();
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
   }, []);
 
   useEffect(() => {
@@ -200,8 +202,12 @@ export default function AdminDashboard() {
     setAdminNotifications(updated);
     localStorage.setItem('festivo_admin_notifications', JSON.stringify(updated));
 
+    // Reload from local storage to ensure we have the absolute latest pending list
+    const latestPending = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
+    setPendingApplications(latestPending);
+
     // 2. Find the vendor in pending applications list
-    const foundVendor = pendingApplications.find(v => v.id === notif.vendorId);
+    const foundVendor = latestPending.find((v: any) => v.id === notif.vendorId);
     if (foundVendor) {
       setActiveTab('applications');
       handleAppOpen(foundVendor);
@@ -264,6 +270,39 @@ export default function AdminDashboard() {
     }
 
     setActionNotice(`✓ "${vendor.name}" approved and listing published!`);
+    setSelectedApp(null);
+  };
+
+  const handleAcceptProfileDetails = (vendor: VendorWithProfile) => {
+    const updatedVendor = {
+      ...vendor,
+      badge: 'Awaiting KYC',
+      badge_color: 'bg-blue-550'
+    };
+    updatedVendor.details = {
+      ...(updatedVendor.details || {}),
+      status: 'Pending KYC'
+    };
+
+    // Update pending
+    const updatedPending = pendingApplications.map(v => v.id === vendor.id ? updatedVendor : v);
+    setPendingApplications(updatedPending);
+    localStorage.setItem('festivo_pending_vendors', JSON.stringify(updatedPending));
+
+    // Send mock notification to vendor
+    const notifications = JSON.parse(localStorage.getItem('festivo_notifications') || '[]');
+    const newNotification = {
+      id: crypto.randomUUID(),
+      vendor_id: vendor.id,
+      title: 'Profile Approved! 📄 Now Submit KYC',
+      message: `Your basic business listing details have been approved. Please log in and upload your KYC documents to activate your portal.`,
+      type: 'info',
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    localStorage.setItem('festivo_notifications', JSON.stringify([...notifications, newNotification]));
+
+    setActionNotice(`✓ Listing details accepted for "${vendor.name}". Staged to Pending KYC.`);
     setSelectedApp(null);
     setTimeout(() => setActionNotice(null), 4000);
   };
@@ -463,7 +502,13 @@ export default function AdminDashboard() {
             {(['overview', 'applications', 'vendors', 'bookings', 'revenue'] as const).map(tab => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  if (tab === 'applications') {
+                    const latestPending = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
+                    setPendingApplications(latestPending);
+                  }
+                }}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all capitalize whitespace-nowrap ${
                   activeTab === tab ? 'bg-white text-sage-950 shadow-soft' : 'text-white/70 hover:text-white hover:bg-white/10'
                 }`}
@@ -542,6 +587,8 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => {
                       setActiveTab('applications');
+                      const latestPending = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
+                      setPendingApplications(latestPending);
                       setShowNotificationsDropdown(false);
                     }}
                     className="text-[10px] font-black text-sage-800 hover:text-sage-900 transition-colors uppercase tracking-wider"
@@ -894,18 +941,28 @@ export default function AdminDashboard() {
                     { label: 'Aadhaar Card Back', url: selectedApp.details?.kyc?.aadhaarBack },
                     { label: 'PAN Card', url: selectedApp.details?.kyc?.pan },
                     { label: 'Cancelled Cheque', url: selectedApp.details?.kyc?.cancelledCheque },
-                    { label: 'GST Certificate (Opt)', url: selectedApp.details?.kyc?.gst || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&q=80&w=200' },
-                    { label: 'Biz Reg Certificate (Opt)', url: selectedApp.details?.kyc?.regCert || 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&q=80&w=200' }
-                  ].map((doc, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setPreviewDoc({ title: doc.label, url: doc.url })}
-                      className="p-3 bg-cream-50 hover:bg-cream-100 rounded-xl border border-cream-200 text-left font-bold text-xs text-dark-800 transition-colors flex flex-col justify-between h-20"
-                    >
-                      <span className="leading-tight">{doc.label}</span>
-                      <span className="text-[9px] text-sage-600 block mt-1 hover:underline">👁 Click to view</span>
-                    </button>
-                  ))}
+                    { label: 'GST Certificate (Opt)', url: selectedApp.details?.kyc?.gst },
+                    { label: 'Biz Reg Certificate (Opt)', url: selectedApp.details?.kyc?.regCert }
+                  ].map((doc, idx) => {
+                    const exists = !!doc.url;
+                    return (
+                      <button
+                        key={idx}
+                        disabled={!exists}
+                        onClick={() => exists && setPreviewDoc({ title: doc.label, url: doc.url })}
+                        className={`p-3 rounded-xl border text-left font-bold text-xs transition-colors flex flex-col justify-between h-20 ${
+                          exists 
+                            ? 'bg-cream-50 hover:bg-cream-100 border-cream-200 text-dark-800' 
+                            : 'bg-dark-50 border-dark-100 text-dark-400 cursor-not-allowed opacity-60'
+                        }`}
+                      >
+                        <span className="leading-tight">{doc.label}</span>
+                        <span className={`text-[9px] block mt-1 ${exists ? 'text-sage-600 hover:underline' : 'text-dark-400 font-semibold'}`}>
+                          {exists ? '👁 Click to view' : 'Not Uploaded'}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1017,14 +1074,16 @@ export default function AdminDashboard() {
               <div className="space-y-2 border-t border-dark-100 pt-4 mt-4">
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    disabled={selectedApp.details?.status === 'Pending KYC'}
                     onClick={() => handleKeepPending(selectedApp)}
-                    className="h-10 border border-dark-100 hover:bg-cream-200 text-dark-800 rounded-xl text-xs font-bold transition-all"
+                    className="h-10 border border-dark-100 hover:bg-cream-200 text-dark-800 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Keep Pending
                   </button>
                   <button
+                    disabled={selectedApp.details?.status === 'Pending KYC'}
                     onClick={() => setShowRequestDocsModal(true)}
-                    className="h-10 border border-blue-200 hover:bg-blue-50 text-blue-700 rounded-xl text-xs font-bold transition-all"
+                    className="h-10 border border-blue-200 hover:bg-blue-50 text-blue-700 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Req Docs
                   </button>
@@ -1032,17 +1091,31 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    disabled={selectedApp.details?.status === 'Pending KYC'}
                     onClick={() => setShowRejectModal(true)}
-                    className="h-11 bg-red-50 hover:bg-red-100 text-red-650 rounded-xl text-xs font-bold transition-all border border-red-150"
+                    className="h-11 bg-red-50 hover:bg-red-100 text-red-650 rounded-xl text-xs font-bold transition-all border border-red-150 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Reject Application
                   </button>
-                  <button
-                    onClick={() => handleApproveApplication(selectedApp)}
-                    className="h-11 bg-gradient-brand text-white rounded-xl text-xs font-black shadow-md transition-all hover:opacity-95"
-                  >
-                    Approve &amp; Publish
-                  </button>
+                  {selectedApp.details?.status === 'KYC Submitted' ? (
+                    <button
+                      onClick={() => handleApproveApplication(selectedApp)}
+                      className="h-11 bg-gradient-brand text-white rounded-xl text-xs font-black shadow-md transition-all hover:opacity-95"
+                    >
+                      Approve KYC & Publish
+                    </button>
+                  ) : selectedApp.details?.status === 'Pending KYC' ? (
+                    <div className="h-11 bg-cream-100 text-dark-500 rounded-xl text-[10px] font-bold flex items-center justify-center border text-center leading-tight">
+                      Awaiting KYC upload
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleAcceptProfileDetails(selectedApp)}
+                      className="h-11 bg-gradient-brand text-white rounded-xl text-xs font-black shadow-md transition-all hover:opacity-95"
+                    >
+                      Accept Profile Details
+                    </button>
+                  )}
                 </div>
               </div>
 

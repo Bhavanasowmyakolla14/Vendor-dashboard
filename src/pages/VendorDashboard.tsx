@@ -652,7 +652,9 @@ export default function VendorDashboard() {
   const [regPriceAmount, setRegPriceAmount] = useState('');
   const [regPriceType, setRegPriceType] = useState('Per Event');
 
-  // Step 7: Portfolio (Static previews)
+  // Step 7: Portfolio
+  const [regLogoUrl, setRegLogoUrl] = useState('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=200');
+  const [regCoverUrl, setRegCoverUrl] = useState('https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800');
   const [regPortfolioCount, setRegPortfolioCount] = useState(6);
   const [regVideoCount, setRegVideoCount] = useState(2);
   const regBrochureUploaded = true;
@@ -679,6 +681,12 @@ export default function VendorDashboard() {
   const [regConfirmCorrect, setRegConfirmCorrect] = useState(false);
   const [regAgreeTerms, setRegAgreeTerms] = useState(false);
   const [regAgreePrivacy, setRegAgreePrivacy] = useState(false);
+
+  // Dashboard KYC Upload Center states
+  const [kycAadhaarFront, setKycAadhaarFront] = useState('');
+  const [kycAadhaarBack, setKycAadhaarBack] = useState('');
+  const [kycPan, setKycPan] = useState('');
+  const [kycCheque, setKycCheque] = useState('');
 
   // KYC Verification Lock states
   const [kycStatus, setKycStatus] = useState(() => {
@@ -752,6 +760,54 @@ export default function VendorDashboard() {
     });
     localStorage.setItem('festivo_pending_vendors', JSON.stringify(updated));
     showToast('Documents resubmitted successfully!');
+  };
+
+  const handleKycSubmit = () => {
+    if (!kycAadhaarFront || !kycAadhaarBack || !kycPan || !kycCheque) {
+      showToast('⚠️ Please upload all required KYC files.');
+      return;
+    }
+
+    const pendingList = JSON.parse(localStorage.getItem('festivo_pending_vendors') || '[]');
+    let vendorName = 'Vendor';
+    let vendorId = '';
+    const updated = pendingList.map((v: any) => {
+      if (v.details?.email?.toLowerCase() === user?.email?.toLowerCase()) {
+        vendorName = v.name;
+        vendorId = v.id;
+        return {
+          ...v,
+          details: {
+            ...v.details,
+            status: 'KYC Submitted',
+            kyc: {
+              aadhaarFront: kycAadhaarFront,
+              aadhaarBack: kycAadhaarBack,
+              pan: kycPan,
+              cancelledCheque: kycCheque,
+            }
+          }
+        };
+      }
+      return v;
+    });
+
+    localStorage.setItem('festivo_pending_vendors', JSON.stringify(updated));
+    
+    // Create admin notification
+    const adminNotifications = JSON.parse(localStorage.getItem('festivo_admin_notifications') || '[]');
+    const newAdminNotification = {
+      id: `AN-${Math.floor(100000 + Math.random() * 900000)}`,
+      type: 'kyc_submitted',
+      vendorId: vendorId,
+      vendorName: vendorName,
+      message: `KYC documents submitted by "${vendorName}" for verification.`,
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    localStorage.setItem('festivo_admin_notifications', JSON.stringify([newAdminNotification, ...adminNotifications]));
+
+    showToast('✓ KYC Documents submitted successfully for verification!');
   };
 
   const handleStartResubmitForm = () => {
@@ -870,7 +926,8 @@ export default function VendorDashboard() {
       price_unit: regPriceType.toLowerCase().replace('per ', ''),
       rating: 5.0,
       reviews: 0,
-      image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
+      image: regCoverUrl,
+      logo: regLogoUrl,
       gallery: [
         'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800'
       ],
@@ -904,10 +961,10 @@ export default function VendorDashboard() {
           name: regBankName,
         },
         kyc: {
-          aadhaarFront: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&q=80&w=200',
-          aadhaarBack: 'https://images.unsplash.com/photo-1606857521015-7f9fcf423740?auto=format&fit=crop&q=80&w=200',
-          pan: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=200',
-          cancelledCheque: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&q=80&w=200',
+          aadhaarFront: '',
+          aadhaarBack: '',
+          pan: '',
+          cancelledCheque: '',
         },
         portfolioCount: regPortfolioCount,
         videoCount: regVideoCount,
@@ -1450,15 +1507,61 @@ export default function VendorDashboard() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="p-4 bg-cream-50 border border-dashed text-center rounded-2xl">
-                        <Store className="w-6 h-6 text-sage-600 mx-auto" />
+                      <div className="p-4 bg-cream-50 border border-dashed text-center rounded-2xl flex flex-col items-center justify-center">
+                        <Store className="w-6 h-6 text-sage-600" />
                         <p className="font-bold mt-1">Logo URL Profile</p>
-                        <p className="text-[10px] text-dark-400 font-semibold mt-1">Ready for review</p>
+                        <img src={regLogoUrl} alt="Logo Preview" className="w-12 h-12 object-cover rounded-lg mt-2 border" />
+                        <input
+                          type="file"
+                          id="onboard-logo-file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setRegLogoUrl(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => document.getElementById('onboard-logo-file')?.click()}
+                          className="mt-2 text-[9px] font-black text-sage-600 hover:underline"
+                        >
+                          Change Logo
+                        </button>
                       </div>
-                      <div className="p-4 bg-cream-50 border border-dashed text-center rounded-2xl">
-                        <Camera className="w-6 h-6 text-sage-600 mx-auto" />
+                      <div className="p-4 bg-cream-50 border border-dashed text-center rounded-2xl flex flex-col items-center justify-center">
+                        <Camera className="w-6 h-6 text-sage-600" />
                         <p className="font-bold mt-1">Cover Banner</p>
-                        <p className="text-[10px] text-dark-400 font-semibold mt-1">Ready for review</p>
+                        <img src={regCoverUrl} alt="Cover Preview" className="w-20 h-10 object-cover rounded-lg mt-2 border" />
+                        <input
+                          type="file"
+                          id="onboard-cover-file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setRegCoverUrl(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => document.getElementById('onboard-cover-file')?.click()}
+                          className="mt-2 text-[9px] font-black text-sage-600 hover:underline"
+                        >
+                          Change Cover
+                        </button>
                       </div>
 
                       <div className="p-4 border rounded-xl flex justify-between items-center bg-white">
@@ -1811,6 +1914,191 @@ export default function VendorDashboard() {
                         >
                           Resubmit Documents for Verification
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STATE: PENDING KYC */}
+                  {activeStatus === 'Pending KYC' && (
+                    <div className="bg-white rounded-3xl p-8 md:p-12 border border-sage-100 shadow-card w-full max-w-2xl transform transition-all animate-scale-in space-y-6">
+                      <div className="text-center space-y-2">
+                        <div className="w-16 h-16 bg-sage-50 border border-sage-100 rounded-full flex items-center justify-center mx-auto shadow-soft">
+                          <Building2 className="w-8 h-8 text-sage-600 animate-bounce" />
+                        </div>
+                        <h2 className="font-display text-2xl font-black text-sage-900 tracking-tight">Submit Business KYC Verification</h2>
+                        <p className="text-xs text-dark-500 font-bold bg-cream-50 inline-block px-3 py-1 rounded-full border">Aadhaar, PAN & Cancelled Cheque</p>
+                      </div>
+
+                      <p className="text-dark-500 text-sm leading-relaxed text-center max-w-lg mx-auto font-semibold">
+                        Your listing profile has been accepted! Please upload your mandatory KYC documents to complete your verification and fully unlock your vendor dashboard.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Aadhaar Front */}
+                        <div className="bg-cream-50 p-4 rounded-2xl border border-dashed border-dark-200 text-center flex flex-col items-center justify-center">
+                          <p className="text-xs font-bold text-dark-800">Aadhaar Card Front *</p>
+                          {kycAadhaarFront ? (
+                            <img src={kycAadhaarFront} alt="Aadhaar Front" className="w-20 h-12 object-cover mt-2 border rounded-lg" />
+                          ) : (
+                            <div className="w-20 h-12 bg-dark-100/50 rounded-lg flex items-center justify-center text-[9px] text-dark-400 font-bold mt-2">No file selected</div>
+                          )}
+                          <input
+                            type="file"
+                            id="kyc-aadhaar-front"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => setKycAadhaarFront(reader.result as string);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => document.getElementById('kyc-aadhaar-front')?.click()}
+                            className="text-[9px] font-black text-sage-600 hover:underline mt-2.5"
+                          >
+                            {kycAadhaarFront ? 'Change Image' : 'Select File'}
+                          </button>
+                        </div>
+
+                        {/* Aadhaar Back */}
+                        <div className="bg-cream-50 p-4 rounded-2xl border border-dashed border-dark-200 text-center flex flex-col items-center justify-center">
+                          <p className="text-xs font-bold text-dark-800">Aadhaar Card Back *</p>
+                          {kycAadhaarBack ? (
+                            <img src={kycAadhaarBack} alt="Aadhaar Back" className="w-20 h-12 object-cover mt-2 border rounded-lg" />
+                          ) : (
+                            <div className="w-20 h-12 bg-dark-100/50 rounded-lg flex items-center justify-center text-[9px] text-dark-400 font-bold mt-2">No file selected</div>
+                          )}
+                          <input
+                            type="file"
+                            id="kyc-aadhaar-back"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => setKycAadhaarBack(reader.result as string);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => document.getElementById('kyc-aadhaar-back')?.click()}
+                            className="text-[9px] font-black text-sage-600 hover:underline mt-2.5"
+                          >
+                            {kycAadhaarBack ? 'Change Image' : 'Select File'}
+                          </button>
+                        </div>
+
+                        {/* PAN Card */}
+                        <div className="bg-cream-50 p-4 rounded-2xl border border-dashed border-dark-200 text-center flex flex-col items-center justify-center">
+                          <p className="text-xs font-bold text-dark-800">PAN Card *</p>
+                          {kycPan ? (
+                            <img src={kycPan} alt="PAN Card" className="w-20 h-12 object-cover mt-2 border rounded-lg" />
+                          ) : (
+                            <div className="w-20 h-12 bg-dark-100/50 rounded-lg flex items-center justify-center text-[9px] text-dark-400 font-bold mt-2">No file selected</div>
+                          )}
+                          <input
+                            type="file"
+                            id="kyc-pan-card"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => setKycPan(reader.result as string);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => document.getElementById('kyc-pan-card')?.click()}
+                            className="text-[9px] font-black text-sage-600 hover:underline mt-2.5"
+                          >
+                            {kycPan ? 'Change Image' : 'Select File'}
+                          </button>
+                        </div>
+
+                        {/* Cancelled Cheque */}
+                        <div className="bg-cream-50 p-4 rounded-2xl border border-dashed border-dark-200 text-center flex flex-col items-center justify-center">
+                          <p className="text-xs font-bold text-dark-800">Cancelled Cheque *</p>
+                          {kycCheque ? (
+                            <img src={kycCheque} alt="Cheque" className="w-20 h-12 object-cover mt-2 border rounded-lg" />
+                          ) : (
+                            <div className="w-20 h-12 bg-dark-100/50 rounded-lg flex items-center justify-center text-[9px] text-dark-400 font-bold mt-2">No file selected</div>
+                          )}
+                          <input
+                            type="file"
+                            id="kyc-cancelled-cheque"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => setKycCheque(reader.result as string);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => document.getElementById('kyc-cancelled-cheque')?.click()}
+                            className="text-[9px] font-black text-sage-600 hover:underline mt-2.5"
+                          >
+                            {kycCheque ? 'Change Image' : 'Select File'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleKycSubmit}
+                        className="w-full h-11 bg-gradient-brand text-white rounded-2xl text-xs font-black shadow-md flex items-center justify-center gap-1.5 transition-all hover:opacity-95 mt-4"
+                      >
+                        Submit KYC Documents for Verification
+                      </button>
+                    </div>
+                  )}
+
+                  {/* STATE: KYC SUBMITTED */}
+                  {activeStatus === 'KYC Submitted' && (
+                    <div className="bg-white rounded-3xl p-8 md:p-12 text-center border border-sage-100 shadow-card w-full max-w-2xl transform transition-all animate-scale-in space-y-6">
+                      <div className="w-20 h-20 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center mx-auto shadow-soft">
+                        <Clock className="w-10 h-10 text-emerald-600 animate-spin" />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h2 className="font-display text-2xl md:text-3xl font-black text-sage-900 tracking-tight">
+                          KYC Under Review
+                        </h2>
+                        <p className="text-sage-800 text-xs font-bold bg-cream-50 inline-block px-3 py-1 rounded-full border">
+                          Business: {matchedVendor?.name}
+                        </p>
+                      </div>
+
+                      <p className="text-dark-500 text-sm max-w-lg mx-auto leading-relaxed font-semibold">
+                        Your KYC verification documents have been submitted successfully. Our admin team is currently reviewing your Aadhaar, PAN, and Cancelled Cheque copies.
+                      </p>
+
+                      <div className="max-w-md mx-auto p-5 bg-cream-50/50 rounded-2xl border text-left text-xs font-semibold space-y-3">
+                        <p className="font-bold text-sage-900 uppercase tracking-widest text-[9px] mb-1">Verification Steps</p>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-dark-600 flex items-center gap-1">✅ Listing Profile details</span>
+                          <span className="text-emerald-650 font-bold">Approved</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-dark-600 flex items-center gap-1">⏳ KYC Document Review</span>
+                          <span className="text-amber-600 font-bold animate-pulse">Awaiting Verification</span>
+                        </div>
                       </div>
                     </div>
                   )}

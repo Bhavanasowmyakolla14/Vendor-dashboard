@@ -65,24 +65,24 @@ export default function VendorRegistrationPage() {
   const [priceAmount, setPriceAmount] = useState('');
   const [priceType, setPriceType] = useState('Per Event');
 
-  // Step 7: Portfolio (Simulated URLs)
-  const [logoUrl] = useState('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=200');
-  const [coverUrl] = useState('https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800');
+  // Step 7: Portfolio
+  const [logoUrl, setLogoUrl] = useState('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=200');
+  const [coverUrl, setCoverUrl] = useState('https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800');
   const [portfolioCount, setPortfolioCount] = useState(6);
   const [videoCount, setVideoCount] = useState(2);
   const [brochureUploaded, setBrochureUploaded] = useState(true);
 
-  // Step 8: Business Verification (KYC)
-  const [aadhaarFrontUrl] = useState('https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&q=80&w=200');
-  const [aadhaarBackUrl] = useState('https://images.unsplash.com/photo-1606857521015-7f9fcf423740?auto=format&fit=crop&q=80&w=200');
-  const [panUrl] = useState('https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=200');
-  const [gstUrl] = useState('');
-  const [regCertUrl] = useState('');
+  // Step 8: Business Verification (KYC Documents are blank initially)
+  const [aadhaarFrontUrl, setAadhaarFrontUrl] = useState('');
+  const [aadhaarBackUrl, setAadhaarBackUrl] = useState('');
+  const [panUrl, setPanUrl] = useState('');
+  const [gstUrl, setGstUrl] = useState('');
+  const [regCertUrl, setRegCertUrl] = useState('');
   const [bankHolderName, setBankHolderName] = useState('');
   const [bankAccNum, setBankAccNum] = useState('');
   const [bankIfsc, setBankIfsc] = useState('');
   const [bankName, setBankName] = useState('');
-  const [cancelledChequeUrl] = useState('https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&q=80&w=200');
+  const [cancelledChequeUrl, setCancelledChequeUrl] = useState('');
 
   // Step 9: Social Media (Optional)
   const [instagram, setInstagram] = useState('');
@@ -219,6 +219,7 @@ export default function VendorRegistrationPage() {
       rating: 5.0,
       reviews: 0,
       image: coverUrl,
+      logo: logoUrl,
       gallery: [
         'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
         'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800'
@@ -872,7 +873,29 @@ export default function VendorRegistrationPage() {
                       <Store className="w-8 h-8 text-sage-600 mb-2" />
                       <p className="text-xs font-bold text-dark-800">Business Logo</p>
                       <img src={logoUrl} alt="Logo Preview" className="w-14 h-14 object-cover rounded-xl mt-3 border" />
-                      <button type="button" className="mt-3 text-[10px] font-black text-sage-600 hover:underline">Change Logo Image</button>
+                      <input
+                        type="file"
+                        id="logo-file-input"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setLogoUrl(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => document.getElementById('logo-file-input')?.click()}
+                        className="mt-3 text-[10px] font-black text-sage-600 hover:underline"
+                      >
+                        Change Logo Image
+                      </button>
                     </div>
 
                     {/* Cover Banner upload */}
@@ -880,7 +903,29 @@ export default function VendorRegistrationPage() {
                       <Camera className="w-8 h-8 text-sage-600 mb-2" />
                       <p className="text-xs font-bold text-dark-800">Cover Banner</p>
                       <img src={coverUrl} alt="Cover Preview" className="w-24 h-12 object-cover rounded-xl mt-3 border" />
-                      <button type="button" className="mt-3 text-[10px] font-black text-sage-600 hover:underline">Change Cover Photo</button>
+                      <input
+                        type="file"
+                        id="cover-file-input"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setCoverUrl(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => document.getElementById('cover-file-input')?.click()}
+                        className="mt-3 text-[10px] font-black text-sage-600 hover:underline"
+                      >
+                        Change Cover Photo
+                      </button>
                     </div>
 
                     {/* Portfolio images */}
@@ -933,52 +978,16 @@ export default function VendorRegistrationPage() {
                 </div>
               )}
 
-              {/* STEP 8: BUSINESS VERIFICATION (KYC) */}
+              {/* STEP 8: PAYOUT BANK DETAILS */}
               {currentStep === 8 && (
                 <div className="space-y-6 animate-fade-in">
                   <div>
-                    <h3 className="font-display font-black text-dark-900 text-lg">Business Verification (KYC)</h3>
-                    <p className="text-dark-500 text-xs mt-0.5">Administration verification documents are mandatory for safety and trust.</p>
+                    <h3 className="font-display font-black text-dark-900 text-lg">Payout Bank Details</h3>
+                    <p className="text-dark-500 text-xs mt-0.5">Please provide your bank details to configure payout distributions.</p>
                   </div>
 
                   <div className="space-y-6">
-                    
-                    {/* Aadhaar cards front/back previews */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-cream-50 p-4 rounded-2xl border border-dashed text-center flex flex-col items-center">
-                        <p className="text-xs font-bold text-dark-800">Aadhaar Card Front *</p>
-                        <img src={aadhaarFrontUrl} alt="Aadhaar Front Preview" className="w-24 h-14 object-cover mt-2 border rounded-lg" />
-                        <button type="button" className="text-[9px] font-black text-sage-600 hover:underline mt-2">Re-upload Front Image</button>
-                      </div>
-                      <div className="bg-cream-50 p-4 rounded-2xl border border-dashed text-center flex flex-col items-center">
-                        <p className="text-xs font-bold text-dark-800">Aadhaar Card Back *</p>
-                        <img src={aadhaarBackUrl} alt="Aadhaar Back Preview" className="w-24 h-14 object-cover mt-2 border rounded-lg" />
-                        <button type="button" className="text-[9px] font-black text-sage-600 hover:underline mt-2">Re-upload Back Image</button>
-                      </div>
-                    </div>
-
-                    {/* PAN and GST previews */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-cream-50 p-4 rounded-2xl border border-dashed text-center flex flex-col items-center">
-                        <p className="text-xs font-bold text-dark-800">PAN Card *</p>
-                        <img src={panUrl} alt="PAN Preview" className="w-16 h-14 object-cover mt-2 border rounded-lg" />
-                        <button type="button" className="text-[9px] font-black text-sage-600 hover:underline mt-2">Re-upload</button>
-                      </div>
-                      <div className="bg-cream-50 p-4 rounded-2xl border border-dashed text-center flex flex-col items-center">
-                        <p className="text-xs font-bold text-dark-800">GST Certificate (Opt.)</p>
-                        <div className="w-16 h-14 bg-dark-100 rounded-lg flex items-center justify-center text-dark-400 text-xs font-bold mt-2">PDF</div>
-                        <button type="button" className="text-[9px] font-black text-sage-600 hover:underline mt-2">Upload Certificate</button>
-                      </div>
-                      <div className="bg-cream-50 p-4 rounded-2xl border border-dashed text-center flex flex-col items-center">
-                        <p className="text-xs font-bold text-dark-800">Biz Reg Certificate (Opt.)</p>
-                        <div className="w-16 h-14 bg-dark-100 rounded-lg flex items-center justify-center text-dark-400 text-xs font-bold mt-2">PDF</div>
-                        <button type="button" className="text-[9px] font-black text-sage-600 hover:underline mt-2">Upload Certificate</button>
-                      </div>
-                    </div>
-
-                    {/* Bank account details form */}
-                    <div className="space-y-4 border-t border-dark-100 pt-6">
-                      <h4 className="font-display font-black text-sage-900 text-sm">Payout Bank Details</h4>
+                    <div className="space-y-4">
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -1026,14 +1035,7 @@ export default function VendorRegistrationPage() {
                         </div>
                       </div>
 
-                      {/* Cancelled cheque preview */}
-                      <div className="bg-cream-50 p-4 rounded-2xl border border-dashed text-center flex flex-col items-center">
-                        <p className="text-xs font-bold text-dark-800">Cancelled Cheque / Passbook Image *</p>
-                        <img src={cancelledChequeUrl} alt="Cheque Preview" className="w-24 h-14 object-cover mt-2 border rounded-lg" />
-                        <button type="button" className="text-[9px] font-black text-sage-600 hover:underline mt-2">Re-upload Cheque Proof</button>
-                      </div>
                     </div>
-
                   </div>
                 </div>
               )}
