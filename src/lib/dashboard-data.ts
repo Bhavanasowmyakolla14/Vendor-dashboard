@@ -50,6 +50,8 @@ export interface Review {
   rating: number;
   text: string;
   date: string;
+  reply?: string;
+  reply_date?: string;
 }
 
 export interface Package {
@@ -71,6 +73,7 @@ export interface NotificationItem {
 
 export const navItems: NavItem[] = [
   { label: 'Dashboard', icon: 'LayoutDashboard' },
+  { label: 'Verify Documents', icon: 'ShieldCheck' },
   { label: 'Bookings', icon: 'CalendarCheck' },
   { label: 'Calendar', icon: 'CalendarDays' },
   { label: 'Messages', icon: 'MessageSquare' },

@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
 import { Check, Circle } from 'lucide-react';
-import { profileTasks } from '@/lib/dashboard-data';
+import { useData } from '@/context/DataContext';
 
 export function ProfileCompletion() {
-  const doneCount = profileTasks.filter((t) => t.done).length;
-  const percent = Math.round((doneCount / profileTasks.length) * 100);
+  const { profileTasksList, toggleProfileTaskItem } = useData();
+
+  const doneCount = profileTasksList.filter((t) => t.done).length;
+  const percent = Math.round((doneCount / profileTasksList.length) * 100);
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percent / 100) * circumference;
@@ -12,7 +14,7 @@ export function ProfileCompletion() {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-premium">
       <h3 className="text-base font-bold text-dark-900">Profile Completion</h3>
-      <p className="mt-0.5 text-sm text-muted-foreground">Finish setup to get more bookings</p>
+      <p className="mt-0.5 text-sm text-muted-foreground">Click task items to update completion score</p>
 
       <div className="mt-4 flex items-center gap-4">
         <div className="relative h-24 w-24 shrink-0">
@@ -38,8 +40,12 @@ export function ProfileCompletion() {
         </div>
 
         <ul className="flex-1 space-y-2">
-          {profileTasks.map((task) => (
-            <li key={task.id} className="flex items-center gap-2 text-sm">
+          {profileTasksList.map((task) => (
+            <li
+              key={task.id}
+              onClick={() => toggleProfileTaskItem(task.id)}
+              className="flex cursor-pointer items-center gap-2 text-sm transition-opacity hover:opacity-80"
+            >
               {task.done ? (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sage-100">
                   <Check className="h-3 w-3 text-sage-700" />

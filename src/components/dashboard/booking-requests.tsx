@@ -1,31 +1,29 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Eye, CalendarClock } from 'lucide-react';
-import { useState } from 'react';
-import { bookingRequests, type BookingRequest } from '@/lib/dashboard-data';
-import { cn } from '@/lib/utils';
+import { useData } from '@/context/DataContext';
+import { useNavigate } from 'react-router-dom';
 
 export function BookingRequests() {
-  const [requests, setRequests] = useState<BookingRequest[]>(bookingRequests);
+  const { bookings, updateBookingStatus } = useData();
+  const navigate = useNavigate();
 
-  const handleAction = (id: string, _action: 'accept' | 'reject') => {
-    setRequests((prev) => prev.filter((r) => r.id !== id));
-  };
+  const pendingRequests = bookings.filter(b => b.status === 'pending');
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-premium sm:p-6">
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-bold text-dark-900">Recent Booking Requests</h3>
-          <p className="text-sm text-muted-foreground">Accept or reject incoming requests</p>
+          <p className="text-sm text-muted-foreground">Accept or reject incoming client requests</p>
         </div>
         <span className="rounded-full bg-gold-50 px-2.5 py-1 text-xs font-semibold text-gold-700">
-          {requests.length} pending
+          {pendingRequests.length} pending
         </span>
       </div>
 
       <div className="space-y-3">
         <AnimatePresence>
-          {requests.map((req, i) => (
+          {pendingRequests.map((req, i) => (
             <motion.div
               key={req.id}
               layout
@@ -37,11 +35,11 @@ export function BookingRequests() {
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-brand text-xs font-bold text-white">
-                  {req.avatar}
+                  {req.avatar || req.customer.split(' ').map(n => n[0]).join('')}
                 </div>
                 <div>
                   <p className="font-semibold text-dark-900">{req.customer}</p>
-                  <p className="text-sm text-muted-foreground">{req.service}</p>
+                  <p className="text-sm text-muted-foreground">{req.type}</p>
                 </div>
               </div>
 
@@ -50,26 +48,27 @@ export function BookingRequests() {
                   <p className="text-sm font-bold text-gold-700">{req.budget}</p>
                   <p className="flex items-center gap-1 text-xs text-muted-foreground">
                     <CalendarClock className="h-3 w-3" />
-                    {req.eventDate}
+                    {req.date}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleAction(req.id, 'accept')}
+                    onClick={() => updateBookingStatus(req.id, 'confirmed')}
                     className="flex h-9 w-9 items-center justify-center rounded-lg bg-sage-600 text-white transition-colors hover:bg-sage-700"
                     title="Accept"
                   >
                     <Check className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => handleAction(req.id, 'reject')}
+                    onClick={() => updateBookingStatus(req.id, 'cancelled')}
                     className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-dark-600 transition-colors hover:bg-red-50 hover:text-red-600"
                     title="Reject"
                   >
                     <X className="h-4 w-4" />
                   </button>
                   <button
+                    onClick={() => navigate('/bookings')}
                     className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-dark-600 transition-colors hover:bg-muted"
                     title="View details"
                   >
@@ -81,7 +80,7 @@ export function BookingRequests() {
           ))}
         </AnimatePresence>
 
-        {requests.length === 0 && (
+        {pendingRequests.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sage-50">
               <Check className="h-6 w-6 text-sage-600" />

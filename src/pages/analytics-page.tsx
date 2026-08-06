@@ -1,33 +1,83 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp, Star, CalendarCheck, Clock, Repeat } from 'lucide-react';
+import { BarChart3, Star, CalendarCheck, Clock, Repeat, Download } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { earningsData } from '@/lib/dashboard-data';
 import { PageHeader } from '@/components/dashboard/page-header';
+import { cn } from '@/lib/utils';
+import { useData } from '@/context/DataContext';
 
 const bookingTrend = [
-  { month: 'Jan', bookings: 12 }, { month: 'Feb', bookings: 18 }, { month: 'Mar', bookings: 15 },
-  { month: 'Apr', bookings: 22 }, { month: 'May', bookings: 25 }, { month: 'Jun', bookings: 28 },
-  { month: 'Jul', bookings: 32 }, { month: 'Aug', bookings: 38 },
+  { month: 'Jan', bookings: 12 },
+  { month: 'Feb', bookings: 18 },
+  { month: 'Mar', bookings: 15 },
+  { month: 'Apr', bookings: 22 },
+  { month: 'May', bookings: 25 },
+  { month: 'Jun', bookings: 28 },
+  { month: 'Jul', bookings: 32 },
+  { month: 'Aug', bookings: 38 },
 ];
 
-const serviceBreakdown = [
-  { name: 'Weddings', value: 45 },
-  { name: 'Corporate', value: 25 },
-  { name: 'Birthdays', value: 18 },
-  { name: 'Receptions', value: 12 },
-];
-
-const stats = [
-  { label: 'Average Rating', value: '4.9', icon: Star, accent: 'text-gold-600', bg: 'bg-gold-50' },
-  { label: 'Completed Events', value: '186', icon: CalendarCheck, accent: 'text-sage-600', bg: 'bg-sage-50' },
-  { label: 'Response Time', value: '1.2h', icon: Clock, accent: 'text-dark-700', bg: 'bg-dark-100' },
-  { label: 'Repeat Customers', value: '42%', icon: Repeat, accent: 'text-sage-600', bg: 'bg-sage-50' },
+const weeklyRevenue = [
+  { day: 'Mon', value: 32000 },
+  { day: 'Tue', value: 41000 },
+  { day: 'Wed', value: 38000 },
+  { day: 'Thu', value: 52000 },
+  { day: 'Fri', value: 48000 },
+  { day: 'Sat', value: 65000 },
+  { day: 'Sun', value: 42000 },
 ];
 
 export function AnalyticsPage() {
+  const { bookings, reviewsList, showToast } = useData();
+  const [range, setRange] = useState<'7D' | '30D' | '90D' | '1Y'>('30D');
+
+  const completedCount = bookings.filter(b => b.status === 'completed').length;
+  const avgRatingScore = (
+    reviewsList.reduce((acc, r) => acc + r.rating, 0) / (reviewsList.length || 1)
+  ).toFixed(1);
+
+  const serviceBreakdown = [
+    { name: 'Weddings', value: 48 },
+    { name: 'Corporate', value: 24 },
+    { name: 'Birthdays', value: 16 },
+    { name: 'Receptions', value: 12 },
+  ];
+
+  const stats = [
+    { label: 'Live Avg Rating', value: avgRatingScore, icon: Star, accent: 'text-gold-600', bg: 'bg-gold-50' },
+    { label: 'Completed Events', value: String(completedCount + 180), icon: CalendarCheck, accent: 'text-sage-600', bg: 'bg-sage-50' },
+    { label: 'Avg Inquiry Response', value: '45 mins', icon: Clock, accent: 'text-dark-700', bg: 'bg-dark-100' },
+    { label: 'Repeat Clients', value: '44%', icon: Repeat, accent: 'text-sage-600', bg: 'bg-sage-50' },
+  ];
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Analytics" subtitle="Insights into your business performance" icon={BarChart3} />
+      <PageHeader title="Business Intelligence & Analytics" subtitle="Comprehensive view of conversion rates, booking velocity, and popular tiers" icon={BarChart3} />
+
+      {/* Control bar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex rounded-xl border border-border bg-muted p-1">
+          {(['7D', '30D', '90D', '1Y'] as const).map(r => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                range === r ? 'bg-card text-dark-900 shadow-sm' : 'text-muted-foreground hover:text-dark-900',
+              )}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => showToast('Analytics CSV report exported successfully')}
+          className="flex items-center gap-2 rounded-xl bg-sage-600 px-4 py-2.5 text-xs font-semibold text-white transition-all hover:bg-sage-700 shadow-sm"
+        >
+          <Download className="h-4 w-4" /> Export Report
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s, i) => {
@@ -53,7 +103,7 @@ export function AnalyticsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-premium sm:p-6">
-          <h3 className="mb-4 text-lg font-bold text-dark-900">Booking Trends</h3>
+          <h3 className="mb-4 text-lg font-bold text-dark-900">Monthly Booking Growth</h3>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={bookingTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -61,28 +111,28 @@ export function AnalyticsPage() {
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'hsl(150 8% 45%)' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: 'hsl(150 8% 45%)' }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(40 15% 88%)', fontSize: '12px' }} />
-                <Bar dataKey="bookings" fill="#5a855a" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="bookings" fill="#4a5d4e" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-premium sm:p-6">
-          <h3 className="mb-4 text-lg font-bold text-dark-900">Revenue Trend</h3>
+          <h3 className="mb-4 text-lg font-bold text-dark-900">Revenue Velocity ({range})</h3>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={earningsData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={weeklyRevenue} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#5a855a" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#5a855a" stopOpacity={0} />
+                  <linearGradient id="revGrad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#4a5d4e" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#4a5d4e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(40 15% 88%)" vertical={false} />
                 <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(150 8% 45%)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: 'hsl(150 8% 45%)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k` } />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(40 15% 88%)', fontSize: '12px' }} formatter={(v: number) => [`₹${v.toLocaleString()}`, 'Revenue'] } />
-                <Area type="monotone" dataKey="value" stroke="#5a855a" strokeWidth={2.5} fill="url(#revGrad)" />
+                <YAxis tick={{ fontSize: 12, fill: 'hsl(150 8% 45%)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(40 15% 88%)', fontSize: '12px' }} formatter={(v: number) => [`₹${v.toLocaleString('en-IN')}`, 'Revenue']} />
+                <Area type="monotone" dataKey="value" stroke="#4a5d4e" strokeWidth={2.5} fill="url(#revGrad2)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -90,8 +140,8 @@ export function AnalyticsPage() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-premium sm:p-6">
-        <h3 className="mb-4 text-lg font-bold text-dark-900">Service Breakdown</h3>
-        <div className="space-y-3">
+        <h3 className="mb-4 text-lg font-bold text-dark-900">Category Demand Share</h3>
+        <div className="space-y-3.5">
           {serviceBreakdown.map((s, i) => (
             <motion.div
               key={s.name}
@@ -109,7 +159,7 @@ export function AnalyticsPage() {
                   className="h-full rounded-full bg-gradient-brand"
                 />
               </div>
-              <p className="w-10 text-right text-sm font-semibold text-dark-900">{s.value}%</p>
+              <p className="w-10 text-right text-sm font-bold text-dark-900">{s.value}%</p>
             </motion.div>
           ))}
         </div>

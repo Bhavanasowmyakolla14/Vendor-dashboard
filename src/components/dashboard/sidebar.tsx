@@ -16,12 +16,17 @@ import {
   LogOut,
   X,
   Sparkles,
+  ShieldCheck,
+  Lock,
 } from 'lucide-react';
 import { navItems } from '@/lib/dashboard-data';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
+  ShieldCheck,
   CalendarCheck,
   CalendarDays,
   MessageSquare,
@@ -37,6 +42,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 const routeMap: Record<string, string> = {
   Dashboard: '/',
+  'Verify Documents': '/verify-documents',
   Bookings: '/bookings',
   Calendar: '/calendar',
   Messages: '/messages',
@@ -50,6 +56,9 @@ const routeMap: Record<string, string> = {
   Support: '/support',
 };
 
+// Gated menu items that require KYC verification
+const gatedItems = ['Bookings', 'Packages', 'Earnings', 'Deals'];
+
 interface SidebarProps {
   mobileOpen: boolean;
   onClose: () => void;
@@ -57,6 +66,11 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const navigate = useNavigate();
+  const { logout, kycStatus, setAuthModalOpen } = useAuth();
+  const { bookings, conversations } = useData();
+
+  const pendingBookingsCount = bookings.filter(b => b.status === 'pending').length;
+  const unreadMessagesCount = conversations.reduce((acc, c) => acc + (c.unread ? 1 : 0), 0);
 
   return (
     <>
@@ -69,7 +83,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed z-40 flex h-full w-[280px] flex-col border-r border-border bg-card shadow-premium transition-transform duration-300 lg:translate-x-0',
+          'fixed z-40 flex h-full w-[280px] flex-col border-r border-white/40 bg-card/85 backdrop-blur-xl shadow-premium transition-transform duration-300 lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -95,12 +109,25 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto scrollbar-thin px-4 py-2">
           <p className="px-3 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Menu
+            Menu Navigation
           </p>
           <ul className="space-y-1">
             {navItems.map((item) => {
               const Icon = iconMap[item.icon] ?? LayoutDashboard;
               const path = routeMap[item.label] ?? '/';
+
+              const isLocked = kycStatus !== 'verified' && gatedItems.includes(item.label);
+
+              let badgeText: string | number | null = null;
+              if (item.label === 'Bookings' && pendingBookingsCount > 0) badgeText = pendingBookingsCount;
+              if (item.label === 'Messages' && unreadMessagesCount > 0) badgeText = unreadMessagesCount;
+
+              if (item.label === 'Verify Documents') {
+                if (kycStatus === 'verified') badgeText = '✓';
+                else if (kycStatus === 'pending') badgeText = 'Review';
+                else badgeText = '!';
+              }
+
               return (
                 <li key={item.label}>
                   <NavLink
@@ -111,6 +138,8 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                         'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                         isActive
                           ? 'text-primary-foreground'
+                          : isLocked
+                          ? 'text-muted-foreground/70 hover:bg-muted/50'
                           : 'text-muted-foreground hover:bg-muted hover:text-dark-900',
                       )
                     }
@@ -120,7 +149,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                         {isActive && (
                           <motion.div
                             layoutId="sidebar-active"
-                            className="absolute inset-0 rounded-xl bg-gradient-brand"
+                            className="absolute inset-0 rounded-xl bg-gradient-brand shadow-sm"
                             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                           />
                         )}
@@ -130,7 +159,32 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                             isActive ? 'text-white' : 'text-muted-foreground group-hover:text-dark-900',
                           )}
                         />
-                        <span className="relative z-10">{item.label}</span>
+                        <span className="relative z-10 flex-1">{item.label}</span>
+
+                        {/* Lock icon for gated items */}
+                        {isLocked && !isActive && (
+                          <Lock className="relative z-10 h-3.5 w-3.5 text-gold-600" />
+                        )}
+
+                        {/* Badges */}
+                        {badgeText !== null && (
+                          <span
+                            className={cn(
+                              'relative z-10 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                              isActive
+                                ? 'bg-white text-sage-800'
+                                : item.label === 'Verify Documents' && kycStatus === 'verified'
+                                ? 'bg-sage-100 text-sage-800'
+                                : item.label === 'Verify Documents' && kycStatus === 'pending'
+                                ? 'bg-gold-100 text-gold-800'
+                                : item.label === 'Verify Documents' && kycStatus === 'unverified'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-sage-100 text-sage-800',
+                            )}
+                          >
+                            {badgeText}
+                          </span>
+                        )}
                       </>
                     )}
                   </NavLink>
@@ -140,14 +194,29 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           </ul>
         </nav>
 
-        {/* Logout */}
-        <div className="border-t border-border p-4">
+        {/* Auth / Logout */}
+        <div className="border-t border-border p-4 space-y-1">
           <button
-            onClick={() => navigate('/')}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-dark-600 transition-colors hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => {
+              setAuthModalOpen(true);
+              onClose();
+            }}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-dark-700 transition-colors hover:bg-muted"
+          >
+            <Settings className="h-[18px] w-[18px] text-muted-foreground" />
+            Account & Auth
+          </button>
+          <button
+            onClick={() => {
+              logout();
+              setAuthModalOpen(true);
+              navigate('/');
+              onClose();
+            }}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
           >
             <LogOut className="h-[18px] w-[18px]" />
-            Logout
+            Logout Session
           </button>
         </div>
       </aside>

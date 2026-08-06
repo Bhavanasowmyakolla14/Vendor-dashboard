@@ -1,17 +1,28 @@
 import { motion } from 'framer-motion';
-import { Search, Bell, Wallet, Menu, Camera } from 'lucide-react';
+import { Search, Bell, Wallet, Menu, Camera, ShieldCheck, ShieldAlert, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRef, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
+import { VerifiedBadge } from '@/components/ui/verified-badge';
 
 interface TopNavProps {
   onMenuClick: () => void;
-  notifCount: number;
 }
 
-export function TopNav({ onMenuClick, notifCount }: TopNavProps) {
+export function TopNav({ onMenuClick }: TopNavProps) {
   const navigate = useNavigate();
+  const { user, kycStatus } = useAuth();
+  const { notificationsList, transactions } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<string | null>(null);
+
+  const unreadCount = notificationsList.filter(n => n.unread).length;
+  
+  // Calculate total earnings from transactions
+  const totalEarnings = transactions
+    .filter(t => t.type === 'credit')
+    .reduce((acc, curr) => acc + curr.rawAmount, 248500);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -23,7 +34,7 @@ export function TopNav({ onMenuClick, notifCount }: TopNavProps) {
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-20 items-center gap-4 border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 flex h-20 items-center gap-4 border-b border-white/40 bg-card/75 px-4 backdrop-blur-xl shadow-sm sm:px-6 lg:px-8">
       <button
         onClick={onMenuClick}
         className="rounded-xl p-2 text-muted-foreground hover:bg-muted lg:hidden"
@@ -31,49 +42,85 @@ export function TopNav({ onMenuClick, notifCount }: TopNavProps) {
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Greeting */}
+      {/* Greeting with Blue Verified Badge */}
       <div className="hidden sm:block">
-        <motion.h2
+        <motion.div
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-xl font-bold text-dark-900 sm:text-2xl"
+          className="flex items-center gap-2"
         >
-          Good Morning, Aarav
-        </motion.h2>
-        <p className="text-sm text-muted-foreground">Manage your business effortlessly.</p>
+          <h2 className="text-xl font-bold text-dark-900 sm:text-2xl">
+            Welcome, {user.fullName.split(' ')[0]}
+          </h2>
+          {kycStatus === 'verified' && <VerifiedBadge size="md" />}
+        </motion.div>
+        <p className="text-xs font-semibold text-sage-700">@{user.username} · {user.businessName}</p>
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-2 sm:gap-3">
-        {/* Search */}
-        <div className="relative hidden md:block">
+        {/* KYC Verification Status Badge */}
+        <button
+          onClick={() => navigate('/verify-documents')}
+          className={`hidden sm:flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold border transition-all ${
+            kycStatus === 'verified'
+              ? 'border-sage-300 bg-sage-50 text-sage-800 shadow-sm'
+              : kycStatus === 'pending'
+              ? 'border-gold-300 bg-gold-50 text-gold-800'
+              : 'border-red-200 bg-red-50 text-red-700 animate-pulse'
+          }`}
+          title="Click to manage KYC verification documents"
+        >
+          {kycStatus === 'verified' && <VerifiedBadge size="sm" />}
+          {kycStatus === 'pending' && <Clock className="h-4 w-4 text-gold-600 animate-spin-slow" />}
+          {kycStatus === 'unverified' && <ShieldAlert className="h-4 w-4 text-red-600" />}
+          <span>
+            {kycStatus === 'verified' && 'Verified Studio'}
+            {kycStatus === 'pending' && 'KYC Reviewing'}
+            {kycStatus === 'unverified' && 'Verify Documents'}
+          </span>
+        </button>
+
+        {/* Global Search */}
+        <div className="relative hidden lg:block">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search bookings, clients..."
-            className="h-11 w-64 rounded-xl border border-border bg-card pl-10 pr-4 text-sm text-dark-900 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 lg:w-80"
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                navigate('/bookings');
+              }
+            }}
+            className="h-11 w-52 rounded-xl border border-border bg-card/90 pl-10 pr-4 text-sm text-dark-900 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 lg:w-60"
           />
         </div>
 
-        {/* Notifications */}
-        <button
+        {/* Ringing Bell Icon with Top-Notch Animation */}
+        <motion.button
+          whileHover={{
+            rotate: [0, -22, 22, -16, 16, -8, 8, 0],
+            transition: { duration: 0.7, ease: 'easeInOut' },
+          }}
+          whileTap={{ scale: 0.9 }}
           onClick={() => navigate('/notifications')}
-          className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
+          className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card/90 text-dark-800 transition-colors hover:bg-cream-100/70 shadow-sm"
+          title="Notifications"
         >
-          <Bell className="h-5 w-5" />
-          {notifCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-500 px-1 text-[10px] font-bold text-white">
-              {notifCount}
+          <Bell className="h-5 w-5 text-sage-700" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-500 px-1 text-[10px] font-extrabold text-white shadow-glow-gold animate-bounce">
+              {unreadCount}
             </span>
           )}
-        </button>
+        </motion.button>
 
         {/* Wallet */}
         <button
           onClick={() => navigate('/earnings')}
-          className="hidden h-11 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold text-dark-900 transition-colors hover:bg-muted sm:flex"
+          className="hidden h-11 items-center gap-2 rounded-xl border border-border bg-card/90 px-3.5 text-sm font-semibold text-dark-900 transition-colors hover:bg-muted sm:flex shadow-sm"
         >
           <Wallet className="h-4 w-4 text-primary" />
-          ₹2,48,500
+          ₹{totalEarnings.toLocaleString('en-IN')}
         </button>
 
         {/* Avatar with photo upload */}
@@ -85,7 +132,7 @@ export function TopNav({ onMenuClick, notifCount }: TopNavProps) {
             {photo ? (
               <img src={photo} alt="Profile" className="h-full w-full object-cover" />
             ) : (
-              'AS'
+              user.avatar || 'AS'
             )}
           </button>
           <button

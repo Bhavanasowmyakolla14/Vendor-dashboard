@@ -13,11 +13,15 @@ import { PackagesSection } from '@/components/dashboard/packages-section';
 import { ReviewsSection } from '@/components/dashboard/reviews-section';
 import { NotificationsCard } from '@/components/dashboard/notifications-card';
 import { PageHeader } from '@/components/dashboard/page-header';
+import { KycGateBanner } from '@/components/dashboard/kyc-gate-banner';
 
 export function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Dashboard" subtitle="Your business at a glance" icon={LayoutDashboard} />
+
+      {/* KYC Document Verification Banner */}
+      <KycGateBanner />
 
       {/* Hero Summary */}
       <SummaryCards />
